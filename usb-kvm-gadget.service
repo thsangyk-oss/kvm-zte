@@ -1,0 +1,12 @@
+[Unit]
+Description=USB HID KVM gadget (keyboard+mouse) tren cong OTG
+After=sys-kernel-config.mount
+Wants=sys-kernel-config.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash /home/sang/Run/kvm/gadget-setup.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=HID forwarder: chuot/phim that -> USB gadget + UDP remote (port 5115)
+After=usb-kvm-gadget.service
+Requires=usb-kvm-gadget.service
+
+[Service]
+Type=simple
+User=sang
+ExecStart=/usr/bin/python3 /home/sang/Run/kvm/hidfwd.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

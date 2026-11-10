@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-visual">
+<meta name="theme-color" content="#07090c">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<title>ZTE KVM</title>
+<style>
+:root{--bg:#07090c;--panel:rgba(18,22,28,.95);--line:#2a323d;--fg:#e6edf3;--mut:#8b97a5;
+--acc:#3fb6ff;--ok:#38d27a;--warn:#f0b43c;--bad:#f0605a;--key:#1c232d;--keyd:#2b3644}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);overflow:hidden;overscroll-behavior:none;
+font:13px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none;touch-action:none}
+#stage{position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;touch-action:none}
+#cv{display:block;background:#000;cursor:crosshair;touch-action:none;outline:none;width:0;height:0;transform-origin:0 0;will-change:transform}
+#stage{overflow:hidden}
+#mZoom{flex:0 0 52px!important;font-variant-numeric:tabular-nums}
+#mZoom.on{background:var(--acc);color:#001018}
+body.rel #cv{cursor:pointer}
+#cur{position:fixed;left:0;top:0;width:18px;height:18px;margin:-2px 0 0 -2px;pointer-events:none;z-index:5;display:none;
+filter:drop-shadow(0 0 2px #000)}
+body.touch.pad #cur{display:block}
+#hot{position:fixed;top:0;left:0;right:0;height:10px;z-index:9}
+body.touch #hot{display:none}
+#top{position:fixed;top:0;left:50%;transform:translate(-50%,0);transition:transform .2s ease,opacity .2s ease;
+z-index:10;display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--panel);
+border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;backdrop-filter:blur(8px);
+max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center;box-shadow:0 6px 24px #0008}
+#top.hide{transform:translate(-50%,-100%);opacity:0;pointer-events:none}
+body.touch #top{padding:10px;gap:8px;padding-top:max(10px,env(safe-area-inset-top))}
+.b{background:var(--key);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 9px;
+font:inherit;cursor:pointer;white-space:nowrap;line-height:1.2;touch-action:manipulation}
+body.touch .b{padding:9px 12px;font-size:14px}
+.b:hover{border-color:var(--acc)}
+.b.on{background:var(--acc);color:#001018;border-color:var(--acc)}
+select.b{padding:4px 6px}
+.sep{width:1px;height:20px;background:var(--line);margin:0 2px}
+.brand{font-weight:700;letter-spacing:.5px;padding:0 4px}
+.st{display:flex;align-items:center;gap:5px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);padding:0 4px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--bad);flex:none}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}
+.num{color:var(--fg);min-width:2.2em;text-align:right;display:inline-block}
+#msg{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);padding:14px 18px;border-radius:10px;
+background:var(--panel);border:1px solid var(--line);color:var(--mut);font-size:15px;pointer-events:none;
+text-align:center;max-width:90vw;z-index:4}
+#msg:empty{display:none}
+#tip{position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:7px 12px;border-radius:8px;
+background:var(--panel);border:1px solid var(--line);color:var(--fg);transition:opacity .3s;opacity:0;pointer-events:none;z-index:12}
+#tip.show{opacity:1}
+/* ---- thanh mobile ---- */
+#mob{position:fixed;left:0;right:0;bottom:0;z-index:8;display:none;flex-direction:column;background:var(--panel);
+border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(8px)}
+body.touch #mob{display:flex}
+.row{display:flex;gap:6px;padding:6px 8px;align-items:center}
+#xk{display:none;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;border-bottom:1px solid var(--line)}
+#xk::-webkit-scrollbar{display:none}
+body.kbd #xk{display:flex}
+.k{flex:none;min-width:44px;height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--key);
+color:var(--fg);font:600 14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+.k:active,.k.dn{background:var(--keyd)}
+.k.on{background:var(--acc);color:#001018;border-color:var(--acc)}
+.k.lock{box-shadow:inset 0 -3px 0 #001018}
+#main .k{flex:1 1 0;min-width:0;height:46px;font-size:13px;padding:0 4px}
+#main .k svg{width:22px;height:22px}
+#ki{position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0;border:0;padding:0;font-size:16px;z-index:-1;color:transparent;background:transparent;caret-color:transparent}
+dialog{background:#12161c;color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:16px;width:min(560px,92vw)}
+dialog::backdrop{background:#0008}
+dialog textarea{width:100%;height:160px;background:#07090c;color:var(--fg);border:1px solid var(--line);
+border-radius:8px;padding:8px;font:14px ui-monospace,monospace;resize:vertical;-webkit-user-select:text;user-select:text}
+dialog .drow{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;align-items:center}
+dialog .hint{color:var(--mut);font-size:12px;margin-right:auto}
+@media (max-width:700px){.wide{display:none}}
+</style></head><body>
+<div id="stage"><canvas id="cv" tabindex="0"></canvas></div>
+<svg id="cur" viewBox="0 0 18 18"><path d="M2 2 L2 15 L5.5 11.5 L8 17 L10.5 16 L8 10.5 L13 10.5 Z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg>
+<div id="hot"></div>
+<div id="top">
+  <span class="brand">KVM</span>
+  <span class="st" title="Kết nối tới ZTE"><span id="dNet" class="dot"></span>Mạng</span>
+  <span class="st" title="Máy đích đã nhận USB bàn phím/chuột"><span id="dUsb" class="dot"></span>USB</span>
+  <span class="st" title="Khung hình/giây"><span class="num" id="sFps">0</span>fps</span>
+  <span class="st" title="Độ trễ mạng khứ hồi"><span class="num" id="sRtt">–</span>ms</span>
+  <span class="st" title="Băng thông video"><span class="num" id="sMbps">0</span>Mb/s</span>
+  <span class="sep"></span>
+  <select class="b" id="qual" title="Độ phân giải / fps của capture (áp dụng cho mọi người xem)"></select>
+  <select class="b" id="win" title="Ưu tiên độ trễ hay độ mượt">
+    <option value="1">Độ trễ thấp nhất</option>
+    <option value="2" selected>Cân bằng</option>
+    <option value="3">Mượt (mạng chậm)</option>
+  </select>
+  <select class="b" id="mmode" title="Kiểu chuột gửi sang máy đích">
+    <option value="abs">Chuột tuyệt đối</option>
+    <option value="rel">Chuột tương đối (game/BIOS)</option>
+  </select>
+  <select class="b" id="tmode" title="Cách điều khiển bằng màn cảm ứng">
+    <option value="pad">Cảm ứng: Touchpad</option>
+    <option value="direct">Cảm ứng: Chạm trực tiếp</option>
+  </select>
+  <span class="sep"></span>
+  <button class="b" data-combo="ctrl+alt+del">Ctrl+Alt+Del</button>
+  <button class="b" data-combo="win">Win</button>
+  <button class="b" data-combo="alt+tab">Alt+Tab</button>
+  <button class="b" data-combo="alt+f4">Alt+F4</button>
+  <button class="b" data-combo="printscreen">PrtSc</button>
+  <button class="b" id="bPaste" title="Gõ một đoạn text vào máy đích">Dán text</button>
+  <button class="b" id="bRel" title="Nhả mọi phím/nút đang giữ">Nhả phím</button>
+  <span class="sep"></span>
+  <button class="b" id="bSnap" title="Lưu ảnh màn hình">Ảnh</button>
+  <button class="b" id="bFull" title="Toàn màn hình">Toàn màn hình</button>
+  <button class="b" id="bPin" title="Ghim thanh công cụ">Ghim</button>
+</div>
+<div id="mob">
+  <div id="xk" class="row"></div>
+  <div id="main" class="row">
+    <button class="k" id="mKbd" title="Bàn phím"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
+    <button class="k" id="mL">Trái</button>
+    <button class="k" id="mR">Phải</button>
+    <button class="k" id="mDrag" title="Giữ nút trái (kéo thả)">Giữ</button>
+    <button class="k" id="mEsc">Esc</button>
+    <button class="k" id="mWin">Win</button>
+    <button class="k" id="mZoom" title="Chụm 2 ngón để phóng to – chạm để về 1×">1×</button>
+    <button class="k" id="mMenu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</div>
+<input id="ki" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" aria-label="bàn phím">
+<div id="msg">Đang kết nối…</div>
+<div id="tip"></div>
+<dialog id="dlg">
+  <div style="font-weight:600;margin-bottom:8px">Gõ text vào máy đích</div>
+  <textarea id="ptxt" placeholder="Chỉ hỗ trợ ký tự ASCII (bàn phím US)…"></textarea>
+  <div class="drow"><span class="hint">Ctrl+Enter để gửi</span>
+    <button class="b" id="pCancel">Huỷ</button><button class="b on" id="pSend">Gửi</button></div>
+</dialog>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d', {alpha:false, desynchronized:true});
+const store = {get(k,d){try{const v=localStorage.getItem('kvm.'+k);return v===null?d:v}catch(e){return d}},
+               set(k,v){try{localStorage.setItem('kvm.'+k,v)}catch(e){}}};
+const CODE={KeyA:4,KeyB:5,KeyC:6,KeyD:7,KeyE:8,KeyF:9,KeyG:10,KeyH:11,KeyI:12,KeyJ:13,KeyK:14,
+KeyL:15,KeyM:16,KeyN:17,KeyO:18,KeyP:19,KeyQ:20,KeyR:21,KeyS:22,KeyT:23,KeyU:24,KeyV:25,KeyW:26,
+KeyX:27,KeyY:28,KeyZ:29,Digit1:30,Digit2:31,Digit3:32,Digit4:33,Digit5:34,Digit6:35,Digit7:36,
+Digit8:37,Digit9:38,Digit0:39,Enter:40,Escape:41,Backspace:42,Tab:43,Space:44,Minus:45,Equal:46,
+BracketLeft:47,BracketRight:48,Backslash:49,Semicolon:51,Quote:52,Backquote:53,Comma:54,Period:55,
+Slash:56,CapsLock:57,F1:58,F2:59,F3:60,F4:61,F5:62,F6:63,F7:64,F8:65,F9:66,F10:67,F11:68,F12:69,
+PrintScreen:70,ScrollLock:71,Pause:72,Insert:73,Home:74,PageUp:75,Delete:76,End:77,PageDown:78,
+ArrowRight:79,ArrowLeft:80,ArrowDown:81,ArrowUp:82,NumLock:83,NumpadDivide:84,NumpadMultiply:85,
+NumpadSubtract:86,NumpadAdd:87,NumpadEnter:88,Numpad1:89,Numpad2:90,Numpad3:91,Numpad4:92,
+Numpad5:93,Numpad6:94,Numpad7:95,Numpad8:96,Numpad9:97,Numpad0:98,NumpadDecimal:99,
+IntlBackslash:100,ContextMenu:101,ControlLeft:224,ShiftLeft:225,AltLeft:226,MetaLeft:227,
+ControlRight:228,ShiftRight:229,AltRight:230,MetaRight:231,OSLeft:227,OSRight:231};
+
+/* ================= WebSocket + video ================= */
+let ws = null, online = false, fw = 0, fh = 0, lastFrame = 0, lastStats = null;
+let rxSeq = 0, drawnSeq = 0, nFrames = 0, nBytes = 0, rtt = null;
+function send(s){ if(ws && ws.readyState === 1) ws.send(s) }
+function connect(){
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.binaryType = 'blob';
+  ws.onopen = () => { online = true; send('win ' + $('win').value); ping(); updDots() };
+  ws.onclose = () => { online = false; updDots(); msg('Mất kết nối – đang kết nối lại…'); setTimeout(connect, 800) };
+  ws.onmessage = e => {
+    if (typeof e.data === 'string') return onText(e.data);
+    nBytes += e.data.size; draw(e.data, ++rxSeq);
+  };
+}
+async function draw(blob, seq){
+  try{
+    const bm = await createImageBitmap(blob);
+    if (seq > drawnSeq){
+      drawnSeq = seq;
+      if (bm.width !== fw || bm.height !== fh){ fw = bm.width; fh = bm.height; cv.width = fw; cv.height = fh; layout() }
+      ctx.drawImage(bm, 0, 0); nFrames++; lastFrame = performance.now();
+    }
+    bm.close();
+  }catch(err){}
+  send('k');
+}
+function onText(t){
+  if (t[0] === 'P'){ rtt = performance.now() - parseFloat(t.slice(2)); return }
+  let d; try{ d = JSON.parse(t) }catch(e){ return }
+  if (d.t === 's'){ lastStats = d; updQual(d); updDots() }
+}
+function ping(){ send('p ' + performance.now().toFixed(1)) }
+setInterval(ping, 1000);
+setInterval(() => {
+  $('sFps').textContent = nFrames; $('sMbps').textContent = (nBytes * 8 / 1e6).toFixed(1);
+  $('sRtt').textContent = rtt === null ? '–' : Math.round(rtt);
+  nFrames = 0; nBytes = 0;
+  if (!online) return;
+  const s = lastStats;
+  if (s && s.err) msg('Capture: ' + s.err);
+  else if (performance.now() - lastFrame > 2500) msg(fw ? 'Không nhận được hình…' : 'Đang chờ hình…');
+  else msg('');
+}, 1000);
+function msg(t){ const m = $('msg'); if (m.textContent !== t) m.textContent = t }
+function updDots(){
+  $('dNet').className = 'dot ' + (online ? 'ok' : '');
+  const u = lastStats && lastStats.udc;
+  $('dUsb').className = 'dot ' + (u === 'configured' ? 'ok' : (u && u !== 'not attached' ? 'warn' : ''));
+  $('dUsb').parentNode.title = 'USB máy đích: ' + (u || '?');
+}
+let qKey = '';
+function updQual(d){
+  const sel = $('qual'), key = JSON.stringify(d.modes || []);
+  if (key !== qKey){
+    qKey = key; sel.innerHTML = '';
+    for (const [w,h,f] of d.modes || []){
+      const o = document.createElement('option'); o.value = `${w} ${h} ${f}`;
+      o.textContent = `${w}×${h} @${f}`; sel.appendChild(o);
+    }
+  }
+  if (d.mode && document.activeElement !== sel) sel.value = d.mode.join(' ');
+}
+$('qual').onchange = e => { send('q ' + e.target.value); tip('Độ phân giải: ' + e.target.selectedOptions[0].textContent); refocus() };
+$('win').value = store.get('win', '2');
+$('win').onchange = e => { store.set('win', e.target.value); send('win ' + e.target.value); refocus() };
+
+/* ================= bố cục ================= */
+let touchUI = false;
+function setTouchUI(on){
+  if (touchUI === on) return; touchUI = on;
+  document.body.classList.toggle('touch', on);
+  if (on){ pinned = false; bar.classList.add('hide') }
+  layout();
+}
+function layout(){
+  const vv = window.visualViewport;
+  const vh = vv ? vv.height : innerHeight, vt = vv ? vv.offsetTop : 0;
+  const mob = $('mob');
+  let bottom = 0;
+  if (touchUI){
+    // đặt thanh mobile ngay trên bàn phím ảo
+    const kbH = Math.max(0, innerHeight - vh - vt);
+    mob.style.bottom = kbH + 'px';
+    bottom = kbH + mob.offsetHeight;
+  }
+  const st = $('stage'); st.style.top = vt + 'px'; st.style.bottom = bottom + 'px';
+  if (!fw) return;
+  const W = st.clientWidth, H = st.clientHeight;
+  const s = Math.min(W / fw, H / fh);
+  bw = Math.floor(fw * s); bh = Math.floor(fh * s);
+  cv.style.width = bw + 'px'; cv.style.height = bh + 'px';
+  applyZoom();
+}
+/* ---- pinch zoom ---- */
+let bw = 0, bh = 0, zoom = 1, tx = 0, ty = 0;
+function boxOrigin(){                       // vị trí canvas khi chưa zoom (flex căn giữa)
+  const r = $('stage').getBoundingClientRect();
+  return [r.left + (r.width - bw) / 2, r.top + (r.height - bh) / 2, r];
+}
+function clampPan(){
+  const [bx, by, r] = boxOrigin();
+  const sw = bw * zoom, sh = bh * zoom;
+  const cl = (t, b0, size, L, S) => size <= S ? (S - size) / 2 + L - b0 : Math.min(L - b0, Math.max(L + S - b0 - size, t));
+  tx = cl(tx, bx, sw, r.left, r.width); ty = cl(ty, by, sh, r.top, r.height);
+}
+function applyZoom(){
+  if (zoom <= 1.001){ zoom = 1; tx = 0; ty = 0 } else clampPan();
+  cv.style.transform = zoom === 1 ? '' : `translate(${tx}px,${ty}px) scale(${zoom})`;
+  const z = $('mZoom'); z.textContent = (Math.round(zoom * 10) / 10) + '×';
+  z.classList.toggle('on', zoom > 1);
+  drawCursor();
+}
+function zoomAt(z, cx, cy, ax, ay){          // giữ điểm nội dung dưới (ax,ay) nằm tại (cx,cy)
+  const [bx, by] = boxOrigin();
+  const ux = (ax - bx - tx) / zoom, uy = (ay - by - ty) / zoom;
+  zoom = Math.max(1, Math.min(6, z));
+  tx = cx - bx - ux * zoom; ty = cy - by - uy * zoom;
+  applyZoom();
+}
+function followCursor(){                      // khi zoom: tự cuộn khung nhìn theo con trỏ
+  if (zoom <= 1) return;
+  const r = cv.getBoundingClientRect(), st = $('stage').getBoundingClientRect(), M = 48;
+  const cx = r.left + mx / 32767 * r.width, cy = r.top + my / 32767 * r.height;
+  let dx = 0, dy = 0;
+  if (cx < st.left + M) dx = st.left + M - cx; else if (cx > st.right - M) dx = st.right - M - cx;
+  if (cy < st.top + M) dy = st.top + M - cy; else if (cy > st.bottom - M) dy = st.bottom - M - cy;
+  if (dx || dy){ tx += dx; ty += dy; applyZoom() }
+}
+addEventListener('resize', layout);
+if (window.visualViewport){ visualViewport.addEventListener('resize', layout); visualViewport.addEventListener('scroll', layout) }
+let tipT;
+function tip(t){ const e = $('tip'); e.textContent = t; e.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => e.classList.remove('show'), 1800) }
+const kbdOpen = () => document.body.classList.contains('kbd');
+function refocus(){ if (kbdOpen()) $('ki').focus({preventScroll:true}); else if (!touchUI) cv.focus() }
+
+/* ================= toolbar ================= */
+const bar = $('top'); let pinned = store.get('pin', '0') === '1', hideT;
+function showBar(){ bar.classList.remove('hide'); clearTimeout(hideT); if (!pinned && !touchUI) hideT = setTimeout(() => { if (!bar.matches(':hover') && !bar.contains(document.activeElement)) bar.classList.add('hide') }, 2500) }
+$('hot').addEventListener('pointerenter', showBar);
+bar.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') showBar() });
+$('bPin').classList.toggle('on', pinned);
+$('bPin').onclick = () => { pinned = !pinned; store.set('pin', pinned ? '1' : '0'); $('bPin').classList.toggle('on', pinned); showBar() };
+
+/* ================= chuột (máy tính) ================= */
+let mmode = store.get('mmode', 'abs'), btns = 0, mx = 16384, my = 16384, wacc = 0;
+$('mmode').value = mmode; document.body.classList.toggle('rel', mmode === 'rel');
+$('mmode').onchange = e => {
+  mmode = e.target.value; store.set('mmode', mmode); document.body.classList.toggle('rel', mmode === 'rel');
+  if (mmode !== 'rel' && document.pointerLockElement) document.exitPointerLock();
+  tip(mmode === 'rel' ? (touchUI ? 'Chuột tương đối' : 'Click vào màn hình để khoá chuột – Esc để thoát') : 'Chuột tuyệt đối'); refocus();
+};
+const locked = () => document.pointerLockElement === cv;
+function absPos(e){
+  const r = cv.getBoundingClientRect(); if (!r.width) return;
+  mx = Math.max(0, Math.min(32767, Math.round((e.clientX - r.left) / r.width * 32767)));
+  my = Math.max(0, Math.min(32767, Math.round((e.clientY - r.top) / r.height * 32767)));
+}
+function sendMouse(dx, dy, w){
+  if (mmode === 'rel') send(`r ${Math.round(dx)} ${Math.round(dy)} ${btns} ${w|0}`);
+  else send(`m ${mx} ${my} ${btns} ${w|0}`);
+}
+function wheelSteps(px, step){
+  wacc += px; let n = 0;
+  while (Math.abs(wacc) >= step && Math.abs(n) < 10){ const s = Math.sign(wacc); n += s; wacc -= s * step }
+  return n;
+}
+cv.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch') return;
+  if (mmode === 'rel'){
+    if (!locked()) return; btns = e.buttons & 7;
+    if (e.movementX || e.movementY) sendMouse(e.movementX, e.movementY, 0); return;
+  }
+  absPos(e); btns = e.buttons & 7; sendMouse(0, 0, 0);
+});
+cv.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'touch') return;
+  setTouchUI(false); cv.focus(); e.preventDefault();
+  if (mmode === 'rel' && !locked()){
+    try{ const p = cv.requestPointerLock({unadjustedMovement:true}); if (p && p.catch) p.catch(() => cv.requestPointerLock()) }catch(_){ cv.requestPointerLock() }
+    return;
+  }
+  if (mmode === 'abs'){ try{ cv.setPointerCapture(e.pointerId) }catch(_){} absPos(e) }
+  btns = e.buttons & 7; sendMouse(0, 0, 0);
+});
+cv.addEventListener('pointerup', e => { if (e.pointerType === 'touch') return; e.preventDefault(); if (mmode === 'abs') absPos(e); btns = e.buttons & 7; sendMouse(0, 0, 0) });
+document.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  let d = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
+  let n = wheelSteps(d, 100);
+  if (!n && e.deltaMode === 0 && Math.abs(d) > 30){ n = Math.sign(d); wacc = 0 }
+  if (n) sendMouse(0, 0, -n);
+}, {passive:false});
+document.addEventListener('pointerlockchange', () => { if (!locked()){ btns = 0; send('x') } else tip('Đã khoá chuột – Esc để thoát') });
+
+/* ================= cảm ứng ================= */
+let tmode = store.get('tmode', 'pad');
+$('tmode').value = tmode; document.body.classList.toggle('pad', tmode === 'pad');
+$('tmode').onchange = e => { tmode = e.target.value; store.set('tmode', tmode); document.body.classList.toggle('pad', tmode === 'pad'); drawCursor(); tip(tmode === 'pad' ? 'Touchpad: kéo 1 ngón để di chuột, chạm để click' : 'Chạm trực tiếp vào điểm cần click'); refocus() };
+const T = new Map();           // pointerId -> {x,y,sx,sy,t}
+let g = null;                  // cử chỉ hiện tại
+let lastTap = 0, lastTapX = 0, lastTapY = 0, holdBtn = false, lpTimer = 0;
+const vib = ms => { try{ navigator.vibrate && navigator.vibrate(ms) }catch(_){} };
+function drawCursor(){
+  const c = $('cur'); if (!touchUI || tmode !== 'pad') return;
+  const r = cv.getBoundingClientRect();
+  c.style.transform = `translate(${r.left + mx / 32767 * r.width}px,${r.top + my / 32767 * r.height}px)`;
+}
+function click(b){ const o = btns; btns = o | b; sendMouse(0,0,0); setTimeout(() => { btns = o; sendMouse(0,0,0) }, 40); vib(8) }
+function padMove(dx, dy, dt){
+  const r = cv.getBoundingClientRect(); if (!r.width) return;
+  const sp = Math.hypot(dx, dy) / Math.max(dt, 1);           // px/ms
+  const gain = 1.0 + Math.min(2.5, sp * 1.6);                   // gia tốc
+  if (mmode === 'rel'){ sendMouse(dx * gain * fw / r.width, dy * gain * fh / r.height, 0); return }
+  mx = Math.max(0, Math.min(32767, Math.round(mx + dx * gain / r.width * 32767)));
+  my = Math.max(0, Math.min(32767, Math.round(my + dy * gain / r.height * 32767)));
+  sendMouse(0, 0, 0); drawCursor(); followCursor();
+}
+function touchStart(e){
+  if (e.pointerType !== 'touch') return;
+  e.preventDefault(); setTouchUI(true);
+  try{ e.target.setPointerCapture(e.pointerId) }catch(_){}
+  const now = performance.now();
+  T.set(e.pointerId, {x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY, t:now});
+  clearTimeout(lpTimer);
+  if (T.size === 1){
+    const dbl = now - lastTap < 300 && Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 40;
+    g = {type:'one', t0:now, moved:false, drag:false};
+    if (tmode === 'direct'){
+      absPos(e); btns = 0; sendMouse(0,0,0);
+      lpTimer = setTimeout(() => { if (g && !g.moved){ g.lp = true; click(2) } }, 550);
+    } else if (dbl){                                            // chạm-chạm-giữ = kéo thả
+      g.drag = true; btns |= 1; sendMouse(0,0,0); vib(15);
+    } else {
+      lpTimer = setTimeout(() => { if (g && g.type === 'one' && !g.moved){ g.lp = true; click(2) } }, 550);
+    }
+  } else if (T.size === 2){
+    if (g && g.drag){ btns &= ~1; sendMouse(0,0,0) }
+    const [a, b] = [...T.values()];
+    g = {type:'two', t0:now, moved:false, kind:null, d0:Math.hypot(a.x - b.x, a.y - b.y) || 1,
+         mx0:(a.x + b.x) / 2, my0:(a.y + b.y) / 2, z0:zoom}; wacc = 0;
+  } else g = {type:'many', t0:now, moved:true};
+}
+function touchMove(e){
+  const p = T.get(e.pointerId); if (!p || !g) return;
+  e.preventDefault();
+  const now = performance.now(), dx = e.clientX - p.x, dy = e.clientY - p.y, dt = now - p.t;
+  p.x = e.clientX; p.y = e.clientY; p.t = now;
+  if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 8){ if (!g.moved) clearTimeout(lpTimer); g.moved = true }
+  if (g.type === 'one'){
+    if (tmode === 'direct'){
+      if (!g.moved) return;
+      if (!g.down && !g.lp){ g.down = true; btns |= 1 }         // chạm trực tiếp + kéo = kéo thả
+      absPos(e); sendMouse(0,0,0);
+    } else if (g.moved) padMove(dx, dy, dt);
+  } else if (g.type === 'two' && T.size === 2){
+    const [a, b] = [...T.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    if (!g.kind){
+      if (Math.abs(d - g.d0) > 22){ g.kind = 'pinch'; g.moved = true; g.d0 = d; g.z0 = zoom; g.mx0 = cx; g.my0 = cy; g.tx0 = tx; g.ty0 = ty }
+      else if (Math.hypot(cx - g.mx0, cy - g.my0) > 12){ g.kind = 'scroll'; g.moved = true }
+      else return;
+    }
+    if (g.kind === 'pinch'){                                    // chụm = zoom + kéo khung nhìn
+      tx = g.tx0; ty = g.ty0; zoom = g.z0;             // tính lại từ trạng thái đầu cử chỉ
+      zoomAt(g.z0 * d / g.d0, cx, cy, g.mx0, g.my0);
+    } else {
+      const n = wheelSteps(dy / 2, 28);                         // cuộn 2 ngón
+      if (n) sendMouse(0, 0, n);
+    }
+  }
+}
+function touchEnd(e){
+  const p = T.get(e.pointerId); if (!p) return;
+  e.preventDefault(); T.delete(e.pointerId); clearTimeout(lpTimer);
+  const now = performance.now();
+  if (!g) return;
+  if (g.type === 'one' && T.size === 0){
+    const quick = now - g.t0 < 250;
+    if (tmode === 'direct'){
+      if (g.down){ btns &= ~1; sendMouse(0,0,0) }
+      else if (!g.moved && !g.lp){ absPos(e); click(1) }
+    } else if (g.drag){
+      btns &= ~1; sendMouse(0,0,0); lastTap = 0;                 // chạm 2 lần (không kéo) = double-click
+    } else if (!g.moved && !g.lp && quick){
+      click(1); lastTap = now; lastTapX = e.clientX; lastTapY = e.clientY;
+    }
+    g = null;
+  } else if (g.type === 'two'){
+    if (T.size === 0){ if (!g.moved && now - g.t0 < 300) click(2); g = null }   // chạm 2 ngón = chuột phải
+  } else if (T.size === 0) g = null;
+}
+$('stage').addEventListener('pointerdown', e => { if (e.pointerType === 'touch') touchStart(e) });
+document.addEventListener('pointermove', e => { if (e.pointerType === 'touch') touchMove(e) }, {passive:false});
+document.addEventListener('pointerup', e => { if (e.pointerType === 'touch') touchEnd(e) });
+document.addEventListener('pointercancel', e => { if (e.pointerType === 'touch'){ T.delete(e.pointerId); if (!T.size){ if (btns){ btns = 0; sendMouse(0,0,0) } g = null } } });
+document.addEventListener('touchmove', e => { if (!e.target.closest('#xk')) e.preventDefault() }, {passive:false});
+
+/* ================= bàn phím vật lý ================= */
+const held = new Set();
+const isUI = e => { const t = e.target; return t && t.id !== 'ki' && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || $('dlg').open) };
+addEventListener('keydown', e => {
+  if (isUI(e)) return;
+  if (e.target.id === 'ki'){   // bàn phím ảo: ký tự/Enter/Backspace xử lý ở ô nhập
+    if (e.isComposing || e.keyCode === 229 || e.key === 'Unidentified' || e.key === 'Enter' || e.key === 'Backspace') return;
+    if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) return;
+  }
+  const u = CODE[e.code]; if (u === undefined) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.repeat || held.has(u)) return;
+  held.add(u); send('d ' + u);
+}, true);
+addEventListener('keyup', e => {
+  if (isUI(e) && !held.size) return;
+  const u = CODE[e.code]; if (u === undefined || !held.has(u)) return;
+  e.preventDefault(); held.delete(u); send('u ' + u);
+}, true);
+function releaseAll(){ held.clear(); btns = 0; send('x') }
+addEventListener('blur', () => { if (!touchUI) releaseAll() });
+document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll() });
+
+/* ================= bàn phím ảo (mobile) ================= */
+const ki = $('ki'), SENT = '  ';
+let prev = SENT, composing = false;
+const mods = {ctrl:0, alt:0, shift:0, win:0};      // 0 tắt, 1 một lần, 2 khoá
+function modStr(){ return Object.keys(mods).filter(k => mods[k]).join('+') }
+function useMods(){ let ch = false; for (const k in mods) if (mods[k] === 1){ mods[k] = 0; ch = true } if (ch) paintMods() }
+function key(name){                          // gửi 1 phím có tên (kèm modifier đang bật)
+  const m = modStr(); send('c ' + (m ? m + '+' : '') + name); useMods();
+}
+function typeText(s){
+  let buf = '';
+  const flush = () => { if (buf){ send('t ' + buf); buf = '' } };
+  for (const ch of s){
+    if (ch === '\n'){ flush(); key('enter'); continue }
+    if (modStr() && /^[a-z0-9]$/i.test(ch)){ flush(); key(ch.toLowerCase()); continue }
+    if (ch.charCodeAt(0) < 32 || ch.charCodeAt(0) > 126){ continue }
+    buf += ch;
+  }
+  flush();
+}
+function resetKi(){ ki.value = SENT; prev = SENT; try{ ki.setSelectionRange(SENT.length, SENT.length) }catch(_){} }
+ki.addEventListener('compositionstart', () => composing = true);
+ki.addEventListener('compositionend', () => { composing = false; setTimeout(() => { if (!composing && ki.value.length > 30) resetKi() }, 0) });
+ki.addEventListener('input', () => {
+  const v = ki.value; let i = 0;
+  while (i < prev.length && i < v.length && prev[i] === v[i]) i++;
+  const del = prev.length - i, add = v.slice(i);
+  for (let k = 0; k < del; k++) key('backspace');
+  if (add) typeText(add);
+  prev = v;
+  if (!composing && (v.length < SENT.length || v.length > 30)) resetKi();
+});
+ki.addEventListener('keydown', e => {
+  if (e.key === 'Enter'){ e.preventDefault(); key('enter'); resetKi() }
+  else if (e.key === 'Backspace' && ki.value.length <= SENT.length && !composing){ e.preventDefault(); key('backspace') }
+});
+function setKbd(on){
+  document.body.classList.toggle('kbd', on); $('mKbd').classList.toggle('on', on);
+  if (on){ resetKi(); ki.focus({preventScroll:true}) } else ki.blur();
+  setTimeout(layout, 50); setTimeout(layout, 350);
+}
+ki.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ki && kbdOpen()) setKbd(false) }, 150));
+
+/* hàng phím phụ */
+const XK = [['Esc','esc'],['Tab','tab'],['Ctrl','#ctrl'],['Alt','#alt'],['Shift','#shift'],['Win','#win'],
+  ['←','left'],['↑','up'],['↓','down'],['→','right'],['Del','delete'],['⌫','backspace'],['↵','enter'],
+  ['Home','home'],['End','end'],['PgUp','pageup'],['PgDn','pagedown'],['Ins','insert'],
+  ['F1','f1'],['F2','f2'],['F3','f3'],['F4','f4'],['F5','f5'],['F6','f6'],['F7','f7'],['F8','f8'],
+  ['F9','f9'],['F10','f10'],['F11','f11'],['F12','f12'],['PrtSc','printscreen'],['Ctrl+Alt+Del','!ctrl+alt+del']];
+const xk = $('xk');
+for (const [lab, v] of XK){
+  const b = document.createElement('button'); b.className = 'k'; b.textContent = lab; b.dataset.v = v;
+  b.addEventListener('pointerdown', e => e.preventDefault());           // giữ focus ở ô nhập => bàn phím ảo không bị đóng
+  b.addEventListener('click', e => {
+    e.preventDefault(); vib(6);
+    if (v[0] === '#'){ const m = v.slice(1); mods[m] = (mods[m] + 1) % 3; paintMods() }
+    else if (v[0] === '!'){ send('c ' + v.slice(1)) }
+    else key(v);
+    if (kbdOpen()) ki.focus({preventScroll:true});
+  });
+  xk.appendChild(b);
+}
+function paintMods(){
+  xk.querySelectorAll('.k').forEach(b => { const v = b.dataset.v; if (v[0] !== '#') return; const s = mods[v.slice(1)];
+    b.classList.toggle('on', s > 0); b.classList.toggle('lock', s === 2) });
+}
+
+/* thanh dưới */
+function tapBtn(id, fn){ const b = $(id); b.addEventListener('pointerdown', e => e.preventDefault()); b.addEventListener('click', e => { e.preventDefault(); fn(b) }) }
+tapBtn('mKbd', () => setKbd(!kbdOpen()));
+tapBtn('mL', () => click(1));
+tapBtn('mR', () => click(2));
+tapBtn('mDrag', b => { holdBtn = !holdBtn; b.classList.toggle('on', holdBtn); btns = holdBtn ? (btns | 1) : (btns & ~1); sendMouse(0,0,0); tip(holdBtn ? 'Đang giữ nút trái – di chuột để kéo' : 'Đã nhả nút trái') });
+tapBtn('mZoom', () => { zoom = 1; applyZoom(); tip('Thu về 1× – chụm 2 ngón để phóng to') });
+tapBtn('mEsc', () => { send('c esc'); vib(6) });
+tapBtn('mWin', () => { send('c win'); vib(6) });
+tapBtn('mMenu', () => { const h = bar.classList.toggle('hide'); $('mMenu').classList.toggle('on', !h) });
+$('stage').addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && !bar.classList.contains('hide')){ bar.classList.add('hide'); $('mMenu').classList.remove('on') } }, true);
+
+/* ================= nút toolbar ================= */
+document.querySelectorAll('[data-combo]').forEach(b => b.onclick = () => { send('c ' + b.dataset.combo); tip(b.textContent); refocus() });
+$('bRel').onclick = () => { releaseAll(); holdBtn = false; $('mDrag').classList.remove('on'); for (const k in mods) mods[k] = 0; paintMods(); tip('Đã nhả mọi phím') };
+$('bSnap').onclick = () => { const a = document.createElement('a'); a.href = '/snap?' + Date.now(); a.download = 'kvm-' + new Date().toISOString().replace(/[:.]/g, '-') + '.jpg'; a.click() };
+$('bFull').onclick = async () => {
+  try{
+    const el = document.documentElement;
+    if (!document.fullscreenElement && !document.webkitFullscreenElement){
+      await (el.requestFullscreen ? el.requestFullscreen({navigationUI:'hide'}) : el.webkitRequestFullscreen());
+      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock().catch(() => {});
+      if (touchUI && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+    } else { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()) }
+  }catch(_){}
+  refocus();
+};
+document.addEventListener('fullscreenchange', () => { $('bFull').classList.toggle('on', !!document.fullscreenElement); setTimeout(layout, 80) });
+const dlg = $('dlg');
+$('bPaste').onclick = async () => {
+  releaseAll(); dlg.showModal();
+  try{ if (!$('ptxt').value && navigator.clipboard && navigator.clipboard.readText) $('ptxt').value = await navigator.clipboard.readText() }catch(_){}
+  $('ptxt').focus();
+};
+$('pCancel').onclick = () => dlg.close();
+$('pSend').onclick = () => {
+  const t = $('ptxt').value.replace(/\r\n?/g, '\n');
+  if (t){ typeText(t); tip(`Đang gõ ${t.length} ký tự…`) }
+  $('ptxt').value = ''; dlg.close();
+};
+$('ptxt').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); $('pSend').click() } });
+dlg.addEventListener('close', refocus);
+
+/* ================= khởi động ================= */
+const coarse = matchMedia('(pointer:coarse)').matches && !matchMedia('(pointer:fine)').matches;
+setTouchUI(coarse || (navigator.maxTouchPoints > 0 && Math.min(screen.width, screen.height) < 820));
+if (!touchUI) showBar();
+connect(); if (!touchUI) cv.focus();
+layout();
+</script></body></html>

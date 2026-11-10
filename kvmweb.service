@@ -1,0 +1,13 @@
+[Unit]
+Description=ZTE Web KVM (MJPEG stream + input forward)
+After=network.target hidfwd.service
+
+[Service]
+Type=simple
+User=sang
+ExecStart=/usr/bin/python3 /home/sang/Run/kvm/kvmweb.py --port 8090
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
