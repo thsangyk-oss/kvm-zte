@@ -4,6 +4,7 @@ Web KVM over IP chạy trên box ZTE W103D/W105D (Armbian):
 
 - **Hình**: lấy màn hình máy đích qua HDMI capture USB (MacroSilicon MS2109, MJPEG), stream qua WebSocket với flow-control theo ack → độ trễ thấp, fps tự thích nghi theo mạng.
 - **Chuột/phím**: ZTE giả lập bàn phím + chuột (tương đối và tuyệt đối) qua USB gadget (configfs HID) trên cổng OTG nối với máy đích.
+- **USB lưu trữ**: cắm USB vào cổng host của ZTE → udev gán `/dev/sdX` vào LUN `mass_storage` của gadget → máy đích thấy như USB cắm trực tiếp (đọc/ghi được). Rút ra là eject mềm, cắm stick khác là tự gán tiếp.
 - **Giao diện web** (`:8090`): máy tính và điện thoại (touchpad/chạm trực tiếp, pinch zoom, bàn phím ảo + hàng phím phụ, chọn độ phân giải/fps).
 
 ## Thành phần
@@ -15,13 +16,17 @@ Web KVM over IP chạy trên box ZTE W103D/W105D (Armbian):
 | `kvmweb.py` | HTTP + WebSocket server: capture V4L2 (không cần ffmpeg), `/ws`, `/stream`, `/snap`, `/health` |
 | `kvm.html` | Giao diện web |
 | `sendinput.py` | Client Linux: dùng chuột/phím của máy điều khiển qua UDP (phím ScrollLock để chuyển) |
+| `usb-share.sh` | Gán/rút USB lưu trữ vào LUN `mass_storage` (umount trên ZTE trước, log ở `/run/kvm-usb-share.log`) |
+| `99-kvm-usb-share.rules` | Rule udev: tự gọi `usb-share.sh` khi cắm/rút disk USB |
 | `*.service` | Unit systemd |
 
 ## Cài đặt
 
 ```bash
 sudo cp usb-kvm-gadget.service hidfwd.service kvmweb.service /etc/systemd/system/
+sudo cp 99-kvm-usb-share.rules /etc/udev/rules.d/
 sudo systemctl daemon-reload
+sudo udevadm control --reload
 sudo systemctl enable --now usb-kvm-gadget hidfwd kvmweb
 ```
 

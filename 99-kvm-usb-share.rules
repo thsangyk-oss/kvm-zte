@@ -1,0 +1,9 @@
+# Cam USB luu tru vao ZTE -> gan vao LUN mass_storage cua gadget -> PC dich thay.
+# Cai dat: sudo cp 99-kvm-usb-share.rules /etc/udev/rules.d/ && sudo udevadm control --reload
+
+ACTION=="add", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", SUBSYSTEMS=="usb", \
+    ENV{UDISKS_IGNORE}="1", \
+    RUN+="/home/sang/Run/kvm/usb-share.sh add %k"
+
+ACTION=="remove", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", SUBSYSTEMS=="usb", \
+    RUN+="/home/sang/Run/kvm/usb-share.sh remove %k"

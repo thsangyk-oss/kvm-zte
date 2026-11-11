@@ -11,16 +11,17 @@ UDC=ff400000.usb
 if [ ! -d /sys/kernel/config/usb_gadget ]; then
     mount -t configfs configfs /sys/kernel/config 2>/dev/null || true
 fi
-/usr/sbin/modprobe libcomposite 2>/dev/null || /sbin/modprobe libcomposite 2>/dev/null || true
-/usr/sbin/modprobe usb_f_hid    2>/dev/null || /sbin/modprobe usb_f_hid    2>/dev/null || true
+/usr/sbin/modprobe libcomposite       2>/dev/null || /sbin/modprobe libcomposite       2>/dev/null || true
+/usr/sbin/modprobe usb_f_hid          2>/dev/null || /sbin/modprobe usb_f_hid          2>/dev/null || true
+/usr/sbin/modprobe usb_f_mass_storage 2>/dev/null || /sbin/modprobe usb_f_mass_storage 2>/dev/null || true
 
 if [ -d "$G" ]; then
     echo "Gadget da ton tai, dang xoa de tao lai..."
     echo "" > "$G/UDC" 2>/dev/null || true
-    rm -f "$G"/configs/c.1/hid.* 2>/dev/null || true
-    find "$G"/configs -name "hid.*" -delete 2>/dev/null || true
+    rm -f "$G"/configs/c.1/hid.* "$G"/configs/c.1/mass_storage.* 2>/dev/null || true
+    find "$G"/configs -name "hid.*" -o -name "mass_storage.*" | xargs -r rm -f 2>/dev/null || true
     rmdir "$G"/configs/c.1/strings/0x409 "$G"/configs/c.1 2>/dev/null || true
-    rmdir "$G"/functions/hid.usb0 "$G"/functions/hid.usb1 "$G"/functions/hid.usb2 2>/dev/null || true
+    rmdir "$G"/functions/hid.usb0 "$G"/functions/hid.usb1 "$G"/functions/hid.usb2 "$G"/functions/mass_storage.usb0 2>/dev/null || true
     rmdir "$G"/strings/0x409 "$G" 2>/dev/null || true
 fi
 
@@ -66,9 +67,18 @@ echo 6 > functions/hid.usb2/report_length
 printf '\x05\x01\x09\x02\xa1\x01\x09\x01\xa1\x00\x05\x09\x19\x01\x29\x03\x15\x00\x25\x01\x95\x03\x75\x01\x81\x02\x95\x01\x75\x05\x81\x03\x05\x01\x09\x30\x09\x31\x16\x00\x00\x26\xff\x7f\x75\x10\x95\x02\x81\x02\x09\x38\x15\x81\x25\x7f\x75\x08\x95\x01\x81\x06\xc0\xc0' \
     > functions/hid.usb2/report_desc
 
+# --- Function 4: mass storage (USB luu tru cam vao ZTE -> PC dich thay) ---
+# lun.0 removable: co the gan /dev/sdX vao file bat cu luc nao (usb-share.sh),
+# file rong = "rut the nho". KHONG duoc mount tren ZTE khi dang gan cho PC.
+mkdir -p functions/mass_storage.usb0
+echo 1 > functions/mass_storage.usb0/lun.0/removable
+echo 1 > functions/mass_storage.usb0/lun.0/nofua
+echo "ZTE KVM Storage" > functions/mass_storage.usb0/lun.0/inquiry_string
+
 ln -sfn functions/hid.usb0 configs/c.1/
 ln -sfn functions/hid.usb1 configs/c.1/
 ln -sfn functions/hid.usb2 configs/c.1/
+ln -sfn functions/mass_storage.usb0 configs/c.1/
 
 echo "$UDC" > UDC
 
