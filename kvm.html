@@ -49,7 +49,10 @@ background:var(--panel);border:1px solid var(--line);color:var(--fg);transition:
 /* ---- thanh mobile ---- */
 #mob{position:fixed;left:0;right:0;bottom:0;z-index:8;display:none;flex-direction:column;background:var(--panel);
 border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(8px)}
-body.touch #mob{display:flex}
+body.touch #mob,body.keys #mob{display:flex}
+body:not(.touch) #main{display:none}
+body.keys #xk{display:flex}
+#xk .k.cmb{color:var(--acc)}
 .row{display:flex;gap:6px;padding:6px 8px;align-items:center}
 #xk{display:none;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;border-bottom:1px solid var(--line)}
 #xk::-webkit-scrollbar{display:none}
@@ -101,6 +104,7 @@ dialog .hint{color:var(--mut);font-size:12px;margin-right:auto}
   <button class="b" data-combo="alt+tab">Alt+Tab</button>
   <button class="b" data-combo="alt+f4">Alt+F4</button>
   <button class="b" data-combo="printscreen">PrtSc</button>
+  <button class="b" id="bKeys" title="Bảng phím: F1–F12, Ctrl/Alt/Shift/Win dính, tổ hợp phím hệ thống">Phím F1–F12</button>
   <button class="b" id="bPaste" title="Gõ một đoạn text vào máy đích">Dán text</button>
   <button class="b" id="bRel" title="Nhả mọi phím/nút đang giữ">Nhả phím</button>
   <span class="sep"></span>
@@ -183,13 +187,16 @@ function onText(t){
 function ping(){ send('p ' + performance.now().toFixed(1)) }
 setInterval(ping, 1000);
 setInterval(() => {
-  $('sFps').textContent = nFrames; $('sMbps').textContent = (nBytes * 8 / 1e6).toFixed(1);
+  const st = lastStats;
+  $('sFps').textContent = (st && st.chg < 1.5 && nFrames <= 1) ? 'tĩnh' : nFrames;
+  $('sMbps').textContent = (nBytes * 8 / 1e6).toFixed(1);
+  autoTick(nFrames);
   $('sRtt').textContent = rtt === null ? '–' : Math.round(rtt);
   nFrames = 0; nBytes = 0;
   if (!online) return;
   const s = lastStats;
   if (s && s.err) msg('Capture: ' + s.err);
-  else if (performance.now() - lastFrame > 2500) msg(fw ? 'Không nhận được hình…' : 'Đang chờ hình…');
+  else if (performance.now() - lastFrame > 4500) msg(fw ? 'Không nhận được hình…' : 'Đang chờ hình…');
   else msg('');
 }, 1000);
 function msg(t){ const m = $('msg'); if (m.textContent !== t) m.textContent = t }
@@ -204,14 +211,51 @@ function updQual(d){
   const sel = $('qual'), key = JSON.stringify(d.modes || []);
   if (key !== qKey){
     qKey = key; sel.innerHTML = '';
+    const oa = document.createElement('option'); oa.value = 'auto'; oa.textContent = 'Tự động (theo mạng)'; sel.appendChild(oa);
     for (const [w,h,f] of d.modes || []){
       const o = document.createElement('option'); o.value = `${w} ${h} ${f}`;
       o.textContent = `${w}×${h} @${f}`; sel.appendChild(o);
     }
   }
-  if (d.mode && document.activeElement !== sel) sel.value = d.mode.join(' ');
+  if (document.activeElement !== sel){
+    if (auto.on) sel.value = 'auto';
+    else if (d.mode) sel.value = d.mode.join(' ');
+  }
+  const oa = sel.querySelector('option[value=auto]');
+  if (oa) oa.textContent = 'Tự động' + (auto.on && d.mode ? ` (${d.mode[1]}p${d.mode[2]})` : ' (theo mạng)');
 }
-$('qual').onchange = e => { send('q ' + e.target.value); tip('Độ phân giải: ' + e.target.selectedOptions[0].textContent); refocus() };
+$('qual').onchange = e => {
+  const v = e.target.value;
+  setAuto(v === 'auto');
+  if (v !== 'auto'){ send('q ' + v); tip('Độ phân giải: ' + e.target.selectedOptions[0].textContent) }
+  else tip('Tự động chọn độ phân giải/fps theo mạng');
+  refocus();
+};
+/* Tự động: hạ mức khi mạng không theo kịp, thử nâng lại định kỳ (backoff nếu thất bại) */
+const LADDER = [[1920,1080,60],[1920,1080,30],[1280,720,60],[1280,720,30],[1280,720,20]];
+const auto = {on:false, bad:0, good:0, tChange:0, backoff:20000, probing:false, prevIdx:-1};
+function setAuto(on){ auto.on = on; store.set('auto', on ? '1' : '0'); auto.bad = auto.good = 0; auto.backoff = 20000; auto.tChange = performance.now() }
+function ladder(){ const m = (lastStats && lastStats.modes) || []; return LADDER.filter(l => m.some(x => x[0]===l[0] && x[1]===l[1] && x[2]===l[2])) }
+function curIdx(L){ const m = lastStats && lastStats.mode; if (!m) return -1; let i = L.findIndex(l => l[0]===m[0] && l[1]===m[1] && l[2]===m[2]);
+  if (i < 0) i = L.findIndex(l => l[0]*l[1]*l[2] <= m[0]*m[1]*m[2]); return i }
+function goIdx(L, i, probing){ auto.prevIdx = curIdx(L); send('q ' + L[i].join(' ')); auto.tChange = performance.now(); auto.bad = auto.good = 0; auto.probing = probing }
+function autoTick(got){
+  const s = lastStats; if (!auto.on || !s || !online || document.hidden) return;
+  const L = ladder(); if (!L.length) return;
+  const i = curIdx(L); if (i < 0){ goIdx(L, 0, false); return }
+  const now = performance.now(); if (now - auto.tChange < 3000) return;   // chờ ổn định sau khi đổi
+  const want = Math.min(s.chg, s.mode[2]);
+  if (want < s.mode[2] * 0.5){ auto.good = 0; auto.bad = 0; return }         // màn hình ít thay đổi: không đủ dữ liệu
+  const ratio = got / want;
+  if (ratio < 0.8){ auto.bad++; auto.good = 0 } else if (ratio > 0.93){ auto.good++; auto.bad = Math.max(0, auto.bad - 1) }
+  if (auto.bad >= 3 && i < L.length - 1){
+    if (auto.probing) auto.backoff = Math.min(auto.backoff * 2, 300000);  // thử nâng thất bại
+    goIdx(L, i + 1, false); return;
+  }
+  if (auto.probing && now - auto.tChange > 8000){ auto.probing = false; auto.backoff = 20000 }
+  if (auto.good >= 8 && i > 0 && now - auto.tChange > auto.backoff) goIdx(L, i - 1, true);
+}
+setAuto(store.get('auto', '1') === '1');
 $('win').value = store.get('win', '2');
 $('win').onchange = e => { store.set('win', e.target.value); send('win ' + e.target.value); refocus() };
 
@@ -228,7 +272,7 @@ function layout(){
   const vh = vv ? vv.height : innerHeight, vt = vv ? vv.offsetTop : 0;
   const mob = $('mob');
   let bottom = 0;
-  if (touchUI){
+  if (touchUI || document.body.classList.contains('keys')){
     // đặt thanh mobile ngay trên bàn phím ảo
     const kbH = Math.max(0, innerHeight - vh - vt);
     mob.style.bottom = kbH + 'px';
@@ -518,17 +562,21 @@ const XK = [['Esc','esc'],['Tab','tab'],['Ctrl','#ctrl'],['Alt','#alt'],['Shift'
   ['←','left'],['↑','up'],['↓','down'],['→','right'],['Del','delete'],['⌫','backspace'],['↵','enter'],
   ['Home','home'],['End','end'],['PgUp','pageup'],['PgDn','pagedown'],['Ins','insert'],
   ['F1','f1'],['F2','f2'],['F3','f3'],['F4','f4'],['F5','f5'],['F6','f6'],['F7','f7'],['F8','f8'],
-  ['F9','f9'],['F10','f10'],['F11','f11'],['F12','f12'],['PrtSc','printscreen'],['Ctrl+Alt+Del','!ctrl+alt+del']];
+  ['F9','f9'],['F10','f10'],['F11','f11'],['F12','f12'],['PrtSc','printscreen'],['Pause','pause'],['Menu','menu'],
+  ['Ctrl+Alt+Del','!ctrl+alt+del'],['Ctrl+Shift+Esc','!ctrl+shift+esc'],['Alt+Tab','!alt+tab'],['Alt+F4','!alt+f4'],
+  ['Win+R','!win+r'],['Win+D','!win+d'],['Win+E','!win+e'],['Win+L','!win+l'],['Win+Tab','!win+tab'],
+  ['Ctrl+W','!ctrl+w'],['Ctrl+T','!ctrl+t'],['Ctrl+N','!ctrl+n'],['Ctrl+Tab','!ctrl+tab'],['Ctrl+Shift+T','!ctrl+shift+t'],
+  ['Ctrl+Alt+F1','!ctrl+alt+f1'],['Ctrl+Alt+F2','!ctrl+alt+f2'],['Ctrl+Alt+F7','!ctrl+alt+f7']];
 const xk = $('xk');
 for (const [lab, v] of XK){
-  const b = document.createElement('button'); b.className = 'k'; b.textContent = lab; b.dataset.v = v;
+  const b = document.createElement('button'); b.className = 'k' + (v[0] === '!' ? ' cmb' : ''); b.textContent = lab; b.dataset.v = v;
   b.addEventListener('pointerdown', e => e.preventDefault());           // giữ focus ở ô nhập => bàn phím ảo không bị đóng
   b.addEventListener('click', e => {
     e.preventDefault(); vib(6);
     if (v[0] === '#'){ const m = v.slice(1); mods[m] = (mods[m] + 1) % 3; paintMods() }
-    else if (v[0] === '!'){ send('c ' + v.slice(1)) }
+    else if (v[0] === '!'){ send('c ' + v.slice(1)); tip(lab) }
     else key(v);
-    if (kbdOpen()) ki.focus({preventScroll:true});
+    if (kbdOpen()) ki.focus({preventScroll:true}); else if (!touchUI) cv.focus();
   });
   xk.appendChild(b);
 }
@@ -551,6 +599,11 @@ $('stage').addEventListener('pointerdown', e => { if (e.pointerType === 'touch' 
 
 /* ================= nút toolbar ================= */
 document.querySelectorAll('[data-combo]').forEach(b => b.onclick = () => { send('c ' + b.dataset.combo); tip(b.textContent); refocus() });
+$('bKeys').onclick = () => {
+  const on = document.body.classList.toggle('keys'); $('bKeys').classList.toggle('on', on);
+  store.set('keys', on ? '1' : '0'); setTimeout(layout, 0); refocus();
+};
+if (store.get('keys', '0') === '1'){ document.body.classList.add('keys'); $('bKeys').classList.add('on') }
 $('bRel').onclick = () => { releaseAll(); holdBtn = false; $('mDrag').classList.remove('on'); for (const k in mods) mods[k] = 0; paintMods(); tip('Đã nhả mọi phím') };
 $('bSnap').onclick = () => { const a = document.createElement('a'); a.href = '/snap?' + Date.now(); a.download = 'kvm-' + new Date().toISOString().replace(/[:.]/g, '-') + '.jpg'; a.click() };
 $('bFull').onclick = async () => {
@@ -558,7 +611,10 @@ $('bFull').onclick = async () => {
     const el = document.documentElement;
     if (!document.fullscreenElement && !document.webkitFullscreenElement){
       await (el.requestFullscreen ? el.requestFullscreen({navigationUI:'hide'}) : el.webkitRequestFullscreen());
-      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock().catch(() => {});
+      if (navigator.keyboard && navigator.keyboard.lock){
+        navigator.keyboard.lock().then(() => tip('Đã bắt toàn bộ phím (Win, Alt+Tab, Ctrl+W…) – giữ Esc để thoát')).catch(() => {});
+      } else if (!touchUI) tip(window.isSecureContext ? 'Trình duyệt không hỗ trợ bắt phím hệ thống – dùng bảng "Phím F1–F12"'
+                                                      : 'Cần HTTPS để bắt Win/Alt+Tab/Ctrl+W – dùng bảng "Phím F1–F12"');
       if (touchUI && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
     } else { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()) }
   }catch(_){}

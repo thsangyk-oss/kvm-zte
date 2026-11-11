@@ -13,7 +13,7 @@ Input duoc chuyen thanh lenh UDP toi hidfwd.py (127.0.0.1:5115).
 
 Chay:  python3 kvmweb.py [--dev /dev/videoX] [--port 8090] [--fwd 127.0.0.1:5115]
 """
-import os, sys, fcntl, mmap, struct, select, socket, json, threading, time, base64, hashlib
+import os, sys, fcntl, mmap, struct, select, socket, json, threading, time, base64, hashlib, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -69,7 +69,8 @@ class Grabber(threading.Thread):
         self.mode, self.modes = None, []
         self.latest, self.seq = None, 0
         self.cv = threading.Condition()
-        self.err, self.fps, self.kbps = "đang mở thiết bị", 0.0, 0
+        self.err, self.fps, self.kbps, self.chg = "đang mở thiết bị", 0.0, 0, 0.0
+        self._crc = None
         self._reset = False
         self.start()
 
@@ -134,7 +135,7 @@ class Grabber(threading.Thread):
 
             fcntl.ioctl(fd, VIDIOC_STREAMON, struct.pack("I", BUF_CAPTURE))
             print(f"capture {w}x{h}@{f}", flush=True)
-            t0 = t_last = time.time(); cnt = nbytes = 0
+            t0 = t_last = time.time(); cnt = nbytes = nchg = 0; t_pub = 0
             while not self._reset:
                 r, _, _ = select.select([fd], [], [], 1.0)
                 now = time.time()
@@ -150,13 +151,19 @@ class Grabber(threading.Thread):
                 data = bytes(bufs[idx][:used])
                 fcntl.ioctl(fd, VIDIOC_QBUF, b, True)  # tra buffer ngay
                 if used < 4 or data[:2] != b"\xff\xd8": continue
-                t_last = now; cnt += 1; nbytes += used
-                with self.cv:
-                    self.latest = data; self.seq += 1; self.err = None
-                    self.cv.notify_all()
+                t_last = now; cnt += 1
+                crc = zlib.crc32(data)
+                # man hinh dung yen -> MS2109 xuat frame giong het nhau: bo qua, khong ton bang thong
+                if crc != self._crc or now - t_pub > 2.0:
+                    self._crc, t_pub = crc, now; nchg += 1; nbytes += used
+                    with self.cv:
+                        self.latest = data; self.seq += 1; self.err = None
+                        self.cv.notify_all()
                 if now - t0 >= 1.0:
-                    self.fps = round(cnt / (now - t0), 1); self.kbps = int(nbytes * 8 / 1000 / (now - t0))
-                    t0, cnt, nbytes = now, 0, 0
+                    dt = now - t0
+                    self.fps = round(cnt / dt, 1); self.chg = round(nchg / dt, 1)
+                    self.kbps = int(nbytes * 8 / 1000 / dt)
+                    t0, cnt, nbytes, nchg = now, 0, 0, 0
         finally:
             try: fcntl.ioctl(fd, VIDIOC_STREAMOFF, struct.pack("I", BUF_CAPTURE))
             except OSError: pass
@@ -254,7 +261,7 @@ class WSConn:
                 now = time.time()
                 if now - t_stat >= 1.0:
                     t_stat = now
-                    self.text(json.dumps({"t": "s", "fps": g.fps, "kbps": g.kbps, "mode": g.mode,
+                    self.text(json.dumps({"t": "s", "fps": g.fps, "chg": g.chg, "kbps": g.kbps, "mode": g.mode,
                                           "modes": g.modes, "err": g.err, "udc": udc_state(), "win": self.win}))
                 if not can: continue
                 s, f = g.wait_frame(seq, 0.5)
@@ -354,7 +361,7 @@ class H(BaseHTTPRequestHandler):
             except (OSError, ValueError): pass
             self.close_connection = True
         elif path == "/health":
-            self._send(200, json.dumps({"mode": grabber.mode, "fps": grabber.fps, "kbps": grabber.kbps,
+            self._send(200, json.dumps({"mode": grabber.mode, "fps": grabber.fps, "chg": grabber.chg, "kbps": grabber.kbps,
                                         "err": grabber.err, "udc": udc_state(), "modes": grabber.modes}).encode(),
                        "application/json")
         else:
