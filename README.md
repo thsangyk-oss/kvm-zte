@@ -25,6 +25,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now usb-kvm-gadget hidfwd kvmweb
 ```
 
+**Cổng USB:**
+- Cổng OTG (USB-A ngoài cùng bên trái, sát nút reset) = gadget → cắm cáp USB-A đực-đực tới PC đích.
+- Card capture MS2109 **phải cắm cổng USB-A còn lại** (hub onboard), KHÔNG cắm cổng OTG — PHY cổng OTG được mux sang DWC2 cho gadget.
+
 Mở `http://<ip-zte>:8090`. Độ phân giải đã chọn được lưu ở `kvmweb.json`.
 
 Đường dẫn trong các unit mặc định là `/home/sang/Run/kvm`; sửa nếu cài chỗ khác.

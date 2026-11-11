@@ -72,14 +72,33 @@ ln -sfn functions/hid.usb2 configs/c.1/
 
 echo "$UDC" > UDC
 
-# Lat mux USB trong chip: route USB2-PHY1 sang DWC2 (device).
-# Mac dinh la "host" -> cong OTG bi khoa o che do host.
-ROLE=/sys/class/usb_role/ffe09000.usb-role-switch/role
-if [ -e "$ROLE" ]; then
-    echo device > "$ROLE" && echo "Role switch -> device (cong OTG hoat dong gadget)"
-else
-    echo "CANH BAO: khong thay $ROLE"
-fi
+# Lat mux USB trong chip: route USB2-PHY1 (cong OTG) sang DWC2 (device).
+# QUAN TRONG: KHONG dung /sys/class/usb_role/*/role -> role=device dat ca
+# bit U2D_ACT lan P21_SLEEP_M0 (usb_glue R4.1), lam DWC3 chet -> xhci "HC died"
+# -> mat toan bo USB host (card capture MS2109 chet theo).
+# Chi set U2D_ACT (bit31 USB_R0 @ glue base+0x80): DWC3 van chay host cho cac
+# cong USB-A con lai (usb2-phy0 = hub onboard), chi PHY1 chuyen sang DWC2.
+# => Card capture PHAI cam vao cong USB-A thuong (qua hub), KHONG duoc cam
+# vao cong OTG (cong ngoai cung ben trai sat nut reset dung cho cable toi PC).
+# Thu tu an toan (giong driver GXL): tat port host cua PHY1 truoc
+# (R1.U3H_HOST_U2_PORT_DISABLE bit13) roi moi bat U2D_ACT — neu khong, viec
+# rut PHY khi port dang stream co the lam xhci "not responding -> assume dead".
+# Ngoai ra phai clear u2p-1.R0.HOST_DEVICE (bit0 @ +0x20): dat PHY1 sang che do
+# device, khong thi dwc2 khong tao duoc link (UDC cu "not attached").
+# Layout ffe09000: u2p-0 @0x00, u2p-1 @0x20, usb_glue @0x80.
+python3 - <<'EOF'
+import mmap, os, time
+fd = os.open("/dev/mem", os.O_RDWR | os.O_SYNC)
+m = mmap.mmap(fd, 0x200, offset=0xffe09000)
+r1 = int.from_bytes(m[0x84:0x88], "little")
+m[0x84:0x88] = (r1 | 0x2000).to_bytes(4, "little")   # disable host U2 port1
+time.sleep(0.6)
+u1 = int.from_bytes(m[0x20:0x24], "little")
+m[0x20:0x24] = (u1 & ~1).to_bytes(4, "little")       # u2p-1 HOST_DEVICE=0
+r0 = int.from_bytes(m[0x80:0x84], "little")
+m[0x80:0x84] = (r0 | 0x80000000).to_bytes(4, "little")  # U2D_ACT: phy1 -> dwc2
+print("OTG -> device: R0=0x%08x R1=0x%08x u2p1=0x%08x" % (int.from_bytes(m[0x80:0x84], "little"), int.from_bytes(m[0x84:0x88], "little"), int.from_bytes(m[0x20:0x24], "little")))
+EOF
 
 # Cho user group input (chay forwarder khong can root)
 sleep 0.5
