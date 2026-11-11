@@ -49,9 +49,9 @@ background:var(--panel);border:1px solid var(--line);color:var(--fg);transition:
 /* ---- thanh mobile ---- */
 #mob{position:fixed;left:0;right:0;bottom:0;z-index:8;display:none;flex-direction:column;background:var(--panel);
 border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(8px)}
-body.touch #mob,body.keys #mob{display:flex}
+#mob{display:flex!important}
 body:not(.touch) #main{display:none}
-body.keys #xk{display:flex}
+#xk{display:flex!important}
 #xk .k.cmb{color:var(--acc)}
 .row{display:flex;gap:6px;padding:6px 8px;align-items:center}
 #xk{display:none;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;border-bottom:1px solid var(--line)}
@@ -104,7 +104,6 @@ dialog .hint{color:var(--mut);font-size:12px;margin-right:auto}
   <button class="b" data-combo="alt+tab">Alt+Tab</button>
   <button class="b" data-combo="alt+f4">Alt+F4</button>
   <button class="b" data-combo="printscreen">PrtSc</button>
-  <button class="b" id="bKeys" title="Bảng phím: F1–F12, Ctrl/Alt/Shift/Win dính, tổ hợp phím hệ thống">Phím F1–F12</button>
   <button class="b" id="bPaste" title="Gõ một đoạn text vào máy đích">Dán text</button>
   <button class="b" id="bRel" title="Nhả mọi phím/nút đang giữ">Nhả phím</button>
   <span class="sep"></span>
@@ -159,13 +158,47 @@ let rxSeq = 0, drawnSeq = 0, nFrames = 0, nBytes = 0, rtt = null;
 function send(s){ if(ws && ws.readyState === 1) ws.send(s) }
 function connect(){
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
-  ws.binaryType = 'blob';
+  ws.binaryType = 'arraybuffer'; jSegs = null;
   ws.onopen = () => { online = true; send('win ' + $('win').value); ping(); updDots() };
   ws.onclose = () => { online = false; updDots(); msg('Mất kết nối – đang kết nối lại…'); setTimeout(connect, 800) };
   ws.onmessage = e => {
     if (typeof e.data === 'string') return onText(e.data);
-    nBytes += e.data.size; draw(e.data, ++rxSeq);
+    nBytes += e.data.byteLength;
+    const jpg = assemble(e.data);
+    if (jpg) draw(new Blob([jpg], {type:'image/jpeg'}), ++rxSeq); else send('k');
   };
+}
+/* ---- delta MJPEG: 0x01 = JPEG đầy đủ, 0x02 = chỉ các đoạn (restart interval) thay đổi ---- */
+let jHdr = null, jSegs = null;
+function splitSegs(u, a, b){            // tách sau mỗi marker RSTn (FF D0..D7), giống re.split phía server
+  const out = []; let s = a;
+  for (let i = a; i < b - 1; i++){
+    if (u[i] === 0xFF){ const m = u[i + 1]; if (m >= 0xD0 && m <= 0xD7){ out.push(u.subarray(s, i + 2)); s = i + 2; i++ } }
+  }
+  out.push(u.subarray(s, b)); return out;
+}
+function assemble(buf){
+  const u = new Uint8Array(buf), t = u[0];
+  if (t === 1){
+    const j = u.subarray(1); let i = 2, h = 0;
+    while (i + 4 <= j.length && j[i] === 0xFF){ const L = (j[i + 2] << 8) | j[i + 3]; if (j[i + 1] === 0xDA){ h = i + 2 + L; break } i += 2 + L }
+    if (h){ jHdr = j.subarray(0, h); jSegs = splitSegs(j, h, j.length) } else { jHdr = jSegs = null }
+    return j;
+  }
+  if (t !== 2) return null;
+  if (!jSegs){ send('f'); return null }
+  const dv = new DataView(buf); let n = dv.getUint32(1), off = 5;
+  while (n--){
+    const a = dv.getUint32(off), c = dv.getUint32(off + 4), L = dv.getUint32(off + 8); off += 12;
+    const p = splitSegs(u, off, off + L); off += L;
+    if (p.length === c + 1 && p[c].length === 0) p.pop();
+    if (p.length !== c || a + c > jSegs.length){ jSegs = null; send('f'); return null }
+    for (let k = 0; k < c; k++) jSegs[a + k] = p[k];
+  }
+  let tot = jHdr.length; for (const sg of jSegs) tot += sg.length;
+  const out = new Uint8Array(tot); out.set(jHdr, 0); let o = jHdr.length;
+  for (const sg of jSegs){ out.set(sg, o); o += sg.length }
+  return out;
 }
 async function draw(blob, seq){
   try{
@@ -176,7 +209,7 @@ async function draw(blob, seq){
       ctx.drawImage(bm, 0, 0); nFrames++; lastFrame = performance.now();
     }
     bm.close();
-  }catch(err){}
+  }catch(err){ jSegs = null; send('f') }
   send('k');
 }
 function onText(t){
@@ -196,7 +229,8 @@ setInterval(() => {
   if (!online) return;
   const s = lastStats;
   if (s && s.err) msg('Capture: ' + s.err);
-  else if (performance.now() - lastFrame > 4500) msg(fw ? 'Không nhận được hình…' : 'Đang chờ hình…');
+  else if (!fw) msg('Đang chờ hình…');
+  else if (s && s.fps < 1) msg('Capture không có tín hiệu…');
   else msg('');
 }, 1000);
 function msg(t){ const m = $('msg'); if (m.textContent !== t) m.textContent = t }
@@ -272,7 +306,7 @@ function layout(){
   const vh = vv ? vv.height : innerHeight, vt = vv ? vv.offsetTop : 0;
   const mob = $('mob');
   let bottom = 0;
-  if (touchUI || document.body.classList.contains('keys')){
+  {
     // đặt thanh mobile ngay trên bàn phím ảo
     const kbH = Math.max(0, innerHeight - vh - vt);
     mob.style.bottom = kbH + 'px';
@@ -599,11 +633,6 @@ $('stage').addEventListener('pointerdown', e => { if (e.pointerType === 'touch' 
 
 /* ================= nút toolbar ================= */
 document.querySelectorAll('[data-combo]').forEach(b => b.onclick = () => { send('c ' + b.dataset.combo); tip(b.textContent); refocus() });
-$('bKeys').onclick = () => {
-  const on = document.body.classList.toggle('keys'); $('bKeys').classList.toggle('on', on);
-  store.set('keys', on ? '1' : '0'); setTimeout(layout, 0); refocus();
-};
-if (store.get('keys', '0') === '1'){ document.body.classList.add('keys'); $('bKeys').classList.add('on') }
 $('bRel').onclick = () => { releaseAll(); holdBtn = false; $('mDrag').classList.remove('on'); for (const k in mods) mods[k] = 0; paintMods(); tip('Đã nhả mọi phím') };
 $('bSnap').onclick = () => { const a = document.createElement('a'); a.href = '/snap?' + Date.now(); a.download = 'kvm-' + new Date().toISOString().replace(/[:.]/g, '-') + '.jpg'; a.click() };
 $('bFull').onclick = async () => {
@@ -613,8 +642,8 @@ $('bFull').onclick = async () => {
       await (el.requestFullscreen ? el.requestFullscreen({navigationUI:'hide'}) : el.webkitRequestFullscreen());
       if (navigator.keyboard && navigator.keyboard.lock){
         navigator.keyboard.lock().then(() => tip('Đã bắt toàn bộ phím (Win, Alt+Tab, Ctrl+W…) – giữ Esc để thoát')).catch(() => {});
-      } else if (!touchUI) tip(window.isSecureContext ? 'Trình duyệt không hỗ trợ bắt phím hệ thống – dùng bảng "Phím F1–F12"'
-                                                      : 'Cần HTTPS để bắt Win/Alt+Tab/Ctrl+W – dùng bảng "Phím F1–F12"');
+      } else if (!touchUI) tip(window.isSecureContext ? 'Trình duyệt không hỗ trợ bắt phím hệ thống – dùng hàng phím bên dưới'
+                                                      : 'Win/Alt+Tab/Ctrl+W: dùng hàng phím bên dưới');
       if (touchUI && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
     } else { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()) }
   }catch(_){}

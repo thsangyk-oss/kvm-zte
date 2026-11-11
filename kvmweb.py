@@ -13,7 +13,7 @@ Input duoc chuyen thanh lenh UDP toi hidfwd.py (127.0.0.1:5115).
 
 Chay:  python3 kvmweb.py [--dev /dev/videoX] [--port 8090] [--fwd 127.0.0.1:5115]
 """
-import os, sys, fcntl, mmap, struct, select, socket, json, threading, time, base64, hashlib, zlib
+import os, sys, fcntl, mmap, struct, select, socket, json, threading, time, base64, hashlib, zlib, re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -61,6 +61,82 @@ def enum_modes(fd):
     modes = sorted(set(modes), key=lambda m: (m[0] * m[1], m[2]), reverse=True)
     return modes
 
+# ---------------- delta MJPEG ----------------
+# MS2109 ghi restart marker (DRI) sau moi MCU -> moi doan entropy doc lap.
+# Chi gui cac doan thay doi; trinh duyet ghep lai thanh JPEG day du.
+# Tach doan tang dan: tim vung byte khac frame truoc (memcmp) roi chi tach vung do.
+from bisect import bisect_left, bisect_right
+from itertools import accumulate
+from collections import deque
+_RST_SPLIT = re.compile(rb"(?<=\xff[\xd0-\xd7])")
+
+def jpeg_hlen(data):
+    """Do dai header (den het SOS) neu JPEG co DRI, nguoc lai 0."""
+    i, n, dri = 2, len(data), False
+    while i + 4 <= n:
+        if data[i] != 0xFF: return 0
+        m = data[i + 1]
+        L = (data[i + 2] << 8) | data[i + 3]
+        if m == 0xDD: dri = True
+        if m == 0xDA: return i + 2 + L if dri else 0
+        i += 2 + L
+    return 0
+
+def _cpre(a, b, n):
+    if a[:n] == b[:n]: return n
+    lo, hi = 0, n
+    while hi - lo > 64:
+        m = (lo + hi) // 2
+        if a[lo:m] == b[lo:m]: lo = m
+        else: hi = m
+    while lo < hi and a[lo] == b[lo]: lo += 1
+    return lo
+
+def _csuf(a, b, n):
+    la, lb = len(a), len(b)
+    if a[la - n:] == b[lb - n:]: return n
+    lo, hi = 0, n
+    while hi - lo > 64:
+        m = (lo + hi) // 2
+        if a[la - m:la - lo] == b[lb - m:lb - lo]: lo = m
+        else: hi = m
+    while lo < hi and a[la - 1 - lo] == b[lb - 1 - lo]: lo += 1
+    return lo
+
+class Frame:
+    __slots__ = ("data", "hlen", "segs", "starts", "prev", "lo", "hi")
+    def __init__(self, data):
+        self.data, self.hlen = data, jpeg_hlen(data)
+        self.segs = self.starts = self.prev = self.lo = self.hi = None
+    def ensure_segs(self):
+        if self.segs is None and self.hlen:
+            self.segs = _RST_SPLIT.split(self.data[self.hlen:])
+            self.starts = list(accumulate([len(x) for x in self.segs[:-1]], initial=self.hlen))
+        return self.segs
+
+def frame_diff(f, p):
+    """Dat f.segs/f.lo/f.hi (vung doan khac p). f.lo=None: thay doi lon/khong so duoc."""
+    a, b = p.data, f.data
+    if not f.hlen or f.hlen != p.hlen or a[:f.hlen] != b[:f.hlen]: return
+    n0 = min(len(a), len(b))
+    pre = _cpre(a, b, n0)
+    if pre == len(a) == len(b):
+        f.segs, f.starts, f.lo, f.hi = p.segs, p.starts, 0, 0; return
+    suf = _csuf(a, b, n0 - pre)
+    if len(a) - pre - suf > 0.6 * len(a) or len(b) - pre - suf > 0.6 * len(b): return
+    ps = p.ensure_segs(); st = p.starts; n = len(ps)
+    k = max(0, bisect_right(st, pre) - 1)
+    t0 = max(k, bisect_left(st, len(a) - suf))
+    end = len(b) - (len(a) - st[t0]) if t0 < n else len(b)
+    if end < st[k]: return
+    mid = _RST_SPLIT.split(b[st[k]:end])
+    if t0 < n and mid and mid[-1] == b"": mid.pop()
+    if k + len(mid) + (n - t0) != n: return
+    d = len(b) - len(a)
+    f.segs = ps[:k] + mid + ps[t0:]
+    f.starts = st[:k] + (list(accumulate([len(x) for x in mid[:-1]], initial=st[k])) if mid else []) + [x + d for x in st[t0:]]
+    f.lo, f.hi = k, k + len(mid)
+
 class Grabber(threading.Thread):
     """Doc MJPEG tu UVC, giu frame moi nhat; client tu lay frame moi nhat (khong xep hang)."""
     def __init__(self, dev, mode):
@@ -72,7 +148,25 @@ class Grabber(threading.Thread):
         self.err, self.fps, self.kbps, self.chg = "đang mở thiết bị", 0.0, 0, 0.0
         self._crc = None
         self._reset = False
+        self._flock, self._frames, self._order, self._lastf = threading.Lock(), {}, deque(), None
         self.start()
+
+    def frame(self, seq, data):
+        """Frame (co diff so voi frame truoc), dung chung cho moi client."""
+        with self._flock:
+            f = self._frames.get(seq)
+            if f is not None: return f
+            f = Frame(data); p = self._lastf
+            if p is not None:
+                f.prev = p
+                try: frame_diff(f, p)
+                except Exception: f.lo = None
+            self._lastf = f; self._frames[seq] = f; self._order.append(seq)
+            while len(self._order) > 24:
+                self._frames.pop(self._order.popleft(), None)
+                nf = self._frames.get(self._order[0])
+                if nf is not None: nf.prev = None
+            return f
 
     def set_mode(self, w, h, f):
         m = (int(w), int(h), int(f))
@@ -212,6 +306,7 @@ class WSConn:
         self.slock = threading.Lock()
         self.cv = threading.Condition()
         self.inflight, self.win, self.alive = 0, 2, True
+        self.base, self.delta = None, True   # frame client dang co
         try:
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 512 * 1024)
@@ -251,6 +346,34 @@ class WSConn:
             buf += data
             if fin: return op0, buf
 
+    def encode(self, cur):
+        """b'\x01'+JPEG (day du) | b'\x02'+runs (chi doan thay doi) | None (khong doi)."""
+        base, self.base = self.base, cur
+        full = b"\x01" + cur.data
+        if base is None or not cur.hlen: return full
+        lo = hi = None; x, depth = cur, 0
+        while x is not base:                       # hop vung thay doi tu frame client co -> hien tai
+            if x is None or x.lo is None or depth > 32: return full
+            lo = x.lo if lo is None else min(lo, x.lo)
+            hi = x.hi if hi is None else max(hi, x.hi)
+            x, depth = x.prev, depth + 1
+        if lo is None or hi <= lo: return None
+        cs, bs = cur.ensure_segs(), base.ensure_segs()
+        if cs is None or bs is None or len(cs) != len(bs): return full
+        ch = [i for i in range(lo, hi) if cs[i] != bs[i]]
+        if not ch: return None
+        runs, st, en = [], ch[0], ch[0]
+        for i in ch[1:]:
+            if i - en <= 4: en = i               # gop cac doan gan nhau
+            else: runs.append((st, en)); st = en = i
+        runs.append((st, en))
+        parts, size = [b"\x02", struct.pack(">I", len(runs))], 0
+        for a, b in runs:
+            blob = b"".join(cs[a:b + 1]); size += len(blob)
+            parts.append(struct.pack(">III", a, b - a + 1, len(blob))); parts.append(blob)
+        if size > len(cur.data) * 0.7: return full
+        return b"".join(parts)
+
     def video_loop(self, g):
         seq, t_stat = 0, 0
         try:
@@ -267,8 +390,10 @@ class WSConn:
                 s, f = g.wait_frame(seq, 0.5)
                 if s == seq or f is None: continue
                 seq = s
+                msg = self.encode(g.frame(s, f)) if self.delta else b"\x01" + f
+                if msg is None: continue          # khong co gi thay doi
                 with self.cv: self.inflight += 1
-                self.send(2, f)
+                self.send(2, msg)
         except (OSError, EOFError): pass
         finally:
             self.alive = False
@@ -287,6 +412,8 @@ class WSConn:
                     if handle_input(msg): continue
                     c, _, a = msg.partition(" ")
                     if c == "p": self.text("P " + a[:32])
+                    elif c == "f": self.base = None
+                    elif c == "delta": self.delta = a.strip() != "0"; self.base = None
                     elif c == "q":
                         w, h, f = a.split()[:3]; g.set_mode(w, h, f)
                     elif c == "win":
