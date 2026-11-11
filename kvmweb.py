@@ -7,19 +7,27 @@ kvmweb.py - Web KVM cho ZTE W105D/W103D.
 - GET /stream  MJPEG stream (tuong thich cu)
 - GET /snap    1 frame JPEG
 - GET /health  trang thai JSON
-- POST /input  JSON event (tuong thich cu)
+- GET /api     mo ta cac endpoint (cho agent)
+- GET /usb     trang thai USB passthrough JSON
+- POST /usb    {"op":"detach|rescan|attach|eject","dev":"sda"} - qua sudo usb-share.sh
+- POST /cmd    lenh hidfwd tho, text hoac {"cmd":...}: key enter | combo ctrl+alt+del
+               | text <s> | abs x y b | move dx dy | click left | wheel n | relall
+- POST /input  JSON event (tuong thich cu; them t:"key" theo ten, t:"px" theo pixel /snap)
 
 Input duoc chuyen thanh lenh UDP toi hidfwd.py (127.0.0.1:5115).
 
 Chay:  python3 kvmweb.py [--dev /dev/videoX] [--port 8090] [--fwd 127.0.0.1:5115]
 """
-import os, sys, fcntl, mmap, struct, select, socket, json, threading, time, base64, hashlib, zlib, re
+import os, sys, fcntl, mmap, struct, select, socket, json, threading, time, base64, hashlib, zlib, re, subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONF = os.path.join(HERE, "kvmweb.json")
 DEV, PORT, FWD = "/dev/v4l/by-id/usb-MACROSILICON_2109-video-index0", 8090, ("127.0.0.1", 5115)
 UDC_STATE = "/sys/class/udc/ff400000.usb/state"
+LUN_FILE = "/sys/kernel/config/usb_gadget/kvm/functions/mass_storage.usb0/lun.0/file"
+USB_STATE, USB_LOG = "/run/kvm-usb-share", "/run/kvm-usb-share.log"
+USB_SHARE = os.path.join(HERE, "usb-share.sh")
 
 # ---------------- V4L2 ----------------
 def _ioc(d, t, n, s): return (d << 30) | (s << 16) | (t << 8) | n
@@ -277,6 +285,40 @@ def udc_state():
         with open(UDC_STATE) as f: return f.read().strip()
     except OSError: return "unknown"
 
+def usb_status():
+    """Trang thai USB passthrough: disk dang gan, LUN, cac disk usb tren ZTE, log."""
+    st = {"udc": udc_state(), "assigned": "", "lun": "", "usbdisks": [], "log": ""}
+    try: st["assigned"] = open(USB_STATE).read().strip()
+    except OSError: pass
+    try: st["lun"] = open(LUN_FILE).read().strip()
+    except OSError: pass
+    try:
+        with open(USB_LOG) as f: st["log"] = "".join(f.readlines()[-20:])
+    except OSError: pass
+    try:
+        out = subprocess.run(["lsblk", "-dn", "-o", "NAME,TRAN,SIZE,MODEL"],
+                             capture_output=True, text=True, timeout=3).stdout
+        for ln in out.splitlines():
+            p = ln.split(None, 3)
+            if len(p) > 1 and p[1] == "usb":
+                st["usbdisks"].append({"dev": p[0], "size": p[2] if len(p) > 2 else "",
+                                       "model": p[3] if len(p) > 3 else ""})
+    except Exception: pass
+    return st
+
+def usb_op(op, dev=""):
+    """Chay usb-share.sh qua sudo: detach|rescan|attach <dev>|eject <dev>."""
+    args = {"detach": ["detach"], "rescan": ["rescan"],
+            "attach": ["add", dev], "eject": ["remove", dev]}.get(op)
+    if not args or (op in ("attach", "eject") and not re.fullmatch(r"[a-zA-Z0-9]+", dev)):
+        return None
+    try:
+        r = subprocess.run(["sudo", "-n", USB_SHARE] + args,
+                           capture_output=True, text=True, timeout=25)
+        return {"rc": r.returncode, "out": (r.stdout + r.stderr).strip()[-500:]}
+    except Exception as e:
+        return {"rc": -1, "out": str(e)}
+
 def _i(s, lo=-100000, hi=100000):
     return max(lo, min(hi, int(s)))
 
@@ -491,16 +533,59 @@ class H(BaseHTTPRequestHandler):
             self._send(200, json.dumps({"mode": grabber.mode, "fps": grabber.fps, "chg": grabber.chg, "kbps": grabber.kbps,
                                         "err": grabber.err, "udc": udc_state(), "modes": grabber.modes}).encode(),
                        "application/json")
+        elif path == "/usb":
+            self._send(200, json.dumps(usb_status()).encode(), "application/json")
+        elif path == "/api":
+            self._send(200, json.dumps({
+                "snap": "GET /snap -> JPEG frame cua man hinh may dich",
+                "health": "GET /health -> {mode,fps,kbps,err,udc,modes}",
+                "cmd": "POST /cmd body=text|{\"cmd\":...}: key <name> | combo <m+k> | text <s> | "
+                       "down/up <k> | move dx dy | click l|r|m | bdown/bup <b> | wheel n | "
+                       "abs x y [b] [w] | rel x y [b] [w] | relall",
+                "input": "POST /input json: {t:abs,x,y,b,w} | {t:px,x,y,b,w} (pixel /snap) | "
+                         "{t:key,s:enter} | {t:combo,s:ctrl+alt+del} | {t:text,s} | {t:kd|ku,u}",
+                "usb": "GET /usb -> status | POST /usb {op:detach|rescan|attach|eject, dev?}",
+            }, ensure_ascii=False).encode(), "application/json")
         else:
             self._send(404, b"not found")
 
-    def do_POST(self):  # tuong thich API cu
-        if self.path != "/input": return self._send(404)
+    def do_POST(self):
+        path = self.path.split("?")[0]
+        try: n = int(self.headers.get("Content-Length", 0))
+        except ValueError: n = 0
+        raw = self.rfile.read(min(n, 1 << 20))
+        if path == "/cmd":   # lenh hidfwd tho - agent goi 1 endpoint la du moi thao tac
+            body = raw.decode(errors="replace")
+            try:
+                d = json.loads(body); body = str(d.get("cmd", ""))
+            except (ValueError, AttributeError): pass
+            ok = False
+            for ln in body.splitlines()[:20]:
+                ln = ln.strip()[:200]
+                if ln: fwd(ln); ok = True
+            return self._send(200 if ok else 400, b"ok" if ok else b"empty")
+        if path == "/usb":
+            try: d = json.loads(raw or b"{}")
+            except ValueError: return self._send(400, b"bad json")
+            r = usb_op(str(d.get("op", "")), str(d.get("dev", "")))
+            if r is None: return self._send(400, b"bad op: detach|rescan|attach|eject (+dev)")
+            st = usb_status(); st["result"] = r
+            return self._send(200 if r["rc"] == 0 else 500,
+                              json.dumps(st, ensure_ascii=False).encode(), "application/json")
+        if path != "/input": return self._send(404)
         try:
-            n = int(self.headers.get("Content-Length", 0))
-            d = json.loads(self.rfile.read(n) or b"{}")
+            d = json.loads(raw or b"{}")
             t = d.get("t")
             if t == "abs": handle_input(f"m {d.get('x',0)} {d.get('y',0)} {d.get('b',0)} {d.get('w',0)}")
+            elif t == "px":   # toa do pixel tren frame /snap -> chuot tuyet doi
+                W, H = max(1, int(grabber.mode[0])), max(1, int(grabber.mode[1]))
+                x = _i(str(int(d.get("x", 0) * 32767 / W)), 0, 32767)
+                y = _i(str(int(d.get("y", 0) * 32767 / H)), 0, 32767)
+                handle_input(f"m {x} {y} {_i(str(d.get('b',0)),0,7)} {_i(str(d.get('w',0)),-127,127)}")
+            elif t == "key":  # phim theo ten: {"t":"key","s":"enter"}
+                s = str(d.get("s", ""))
+                if not re.fullmatch(r"[\w+]{1,32}", s): raise ValueError("bad key")
+                fwd("key " + s)
             elif t == "kd": handle_input(f"d {d.get('u',0)}")
             elif t == "ku": handle_input(f"u {d.get('u',0)}")
             elif t == "combo": handle_input("c " + str(d.get("s", "")))

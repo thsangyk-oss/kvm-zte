@@ -20,6 +20,13 @@ Web KVM over IP chạy trên box ZTE W103D/W105D (Armbian):
 | `99-kvm-usb-share.rules` | Rule udev: tự gọi `usb-share.sh` khi cắm/rút disk USB |
 | `*.service` | Unit systemd |
 
+## HTTP API (`:8090`, cho script/AI agent)
+
+- `GET /snap` 1 frame JPEG · `GET /stream` MJPEG · `GET /health` trạng thái · `GET /api` mô tả endpoint
+- `POST /cmd` — lệnh hidfwd thô (text hoặc `{"cmd":...}`): `key enter`, `combo ctrl+alt+del`, `text <s>`, `abs x y b`, `relall`, ...
+- `POST /input` — JSON: `{t:abs|px,x,y,b,w}` (`px` = toạ độ pixel của `/snap`, tự quy đổi), `{t:key,s:enter}`, `{t:combo|text,s}`, `{t:kd|ku,u}`
+- `GET /usb` — trạng thái USB passthrough · `POST /usb` — `{op:detach|rescan|attach|eject, dev?}` (gọi `sudo usb-share.sh`, `detach` = eject mềm không gán lại)
+
 ## Cài đặt
 
 ```bash

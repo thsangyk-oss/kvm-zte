@@ -70,8 +70,13 @@ case "${1:-}" in
     rescan)
         rescan || log "khong tim thay disk usb nao"
         ;;
+    detach)   # eject mem, KHONG gan lai disk khac (de flash image vao stick)
+        echo "" > "$LUN/file" 2>/dev/null || true
+        rm -f "$STATE"
+        log "detach (eject mem)"
+        ;;
     *)
-        echo "usage: $0 add|remove <dev> | rescan" >&2
+        echo "usage: $0 add|remove <dev> | rescan | detach" >&2
         exit 2
         ;;
 esac
