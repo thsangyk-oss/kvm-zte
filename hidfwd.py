@@ -152,7 +152,10 @@ class Hid:
     ax = ay = 16384; abtn = 0
     def amouse(self, x, y, btns=0, wh=0):  # absolute pointer: x,y 0..32767
         self.ax, self.ay, self.abtn = x, y, btns & 7
-        self._w(self.afd, struct.pack("<BHhb", btns & 0x07, max(0, min(32767, x)), max(0, min(32767, y)), max(-127, min(127, wh))))
+        # hidg2 = Digitizer Pen: b0=Tip (nut trai), b1=Barrel (nut phai), b2=InRange (luon 1)
+        bits = (1 if btns & 1 else 0) | (2 if btns & 2 else 0) | 4
+        self._w(self.afd, struct.pack("<BHH", bits, max(0, min(32767, x)), max(0, min(32767, y))))
+        if wh: self.mouse(0, 0, 0, wh)  # Pen khong co banh xe -> cuon qua chuot tuong doi
 
 class KbdState:
     def __init__(self, hid): self.hid, self.mods, self.keys = hid, 0, set()

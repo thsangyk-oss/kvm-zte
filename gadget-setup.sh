@@ -58,13 +58,17 @@ echo 4 > functions/hid.usb1/report_length
 printf '\x05\x01\x09\x02\xa1\x01\x09\x01\xa1\x00\x05\x09\x19\x01\x29\x03\x15\x00\x25\x01\x95\x03\x75\x01\x81\x02\x95\x01\x75\x05\x81\x03\x05\x01\x09\x30\x09\x31\x09\x38\x15\x81\x25\x7f\x75\x08\x95\x03\x81\x06\xc0\xc0' \
     > functions/hid.usb1/report_desc
 
-# --- Function 3: absolute pointer (chuot tuyet doi cho web KVM) ---
-# report 6 byte: buttons(1) X(2 LE, 0-32767) Y(2) wheel(1)
+# --- Function 3: con tro tuyet doi dang Digitizer Pen (cho web KVM) ---
+# Android KHONG nhan "absolute mouse" (ABS_X/Y + BTN_LEFT, khong co BTN_TOUCH)
+# -> bo qua. Pen (Usage Page 0x0D / Usage 0x02): kernel dat INPUT_PROP_DIRECT +
+# BTN_TOUCH + BTN_TOOL_PEN -> Android coi la man hinh cham (cham dung toa do);
+# Windows (Windows Ink) / Linux desktop cung nhan, con tro di theo khi hover.
+# report 5 byte: bits(1: b0=Tip, b1=Barrel, b2=InRange) X(2 LE, 0-32767) Y(2)
 mkdir -p functions/hid.usb2
 echo 0 > functions/hid.usb2/protocol   # none
 echo 0 > functions/hid.usb2/subclass
-echo 6 > functions/hid.usb2/report_length
-printf '\x05\x01\x09\x02\xa1\x01\x09\x01\xa1\x00\x05\x09\x19\x01\x29\x03\x15\x00\x25\x01\x95\x03\x75\x01\x81\x02\x95\x01\x75\x05\x81\x03\x05\x01\x09\x30\x09\x31\x16\x00\x00\x26\xff\x7f\x75\x10\x95\x02\x81\x02\x09\x38\x15\x81\x25\x7f\x75\x08\x95\x01\x81\x06\xc0\xc0' \
+echo 5 > functions/hid.usb2/report_length
+printf '\x05\x0d\x09\x02\xa1\x01\x09\x20\xa1\x00\x09\x42\x09\x44\x09\x32\x15\x00\x25\x01\x75\x01\x95\x03\x81\x02\x95\x05\x81\x03\x05\x01\x09\x30\x09\x31\x15\x00\x26\xff\x7f\x35\x00\x46\xff\x7f\x75\x10\x95\x02\x81\x02\xc0\xc0' \
     > functions/hid.usb2/report_desc
 
 # --- Function 4: mass storage (USB luu tru cam vao ZTE -> PC dich thay) ---
