@@ -1,0 +1,13 @@
+[Unit]
+Description=Terminal root cho agent (PTY session host, 127.0.0.1:8092; kvmweb proxy + xac thuc)
+After=network.target
+
+[Service]
+WorkingDirectory=/root
+ExecStart=/usr/bin/python3 /home/sang/Run/kvm/xdterm.py
+Restart=on-failure
+RestartSec=3
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

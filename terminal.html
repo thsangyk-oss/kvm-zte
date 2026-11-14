@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="theme-color" content="#06080b">
+<title>W105D Terminal</title>
+<link rel="stylesheet" href="/vendor/xterm.css">
+<style>
+:root{--bg:#06080b;--surf:#11151b;--surf2:#161b22;--raise:#1d242e;--raise2:#27303c;--line:#2a333f;--line2:#3a4553;--fg:#e7edf3;--mut:#8d99a7;--dim:#5f6b78;
+  --acc:#4cb8ff;--accfg:#00121f;--ok:#3ccf7c;--warn:#f2b33d;--bad:#f2615b;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#0b0e12}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit}
+svg.i{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#app{display:grid;grid-template-columns:280px 1fr;grid-template-rows:48px 1fr;height:100%}
+header{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--surf)}
+header h1{font-size:14px;margin:0 8px 0 0;display:flex;align-items:center;gap:8px}
+header h1 .dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+header h1 .dot.ok{background:var(--ok)}
+.sp{flex:1}
+.ib{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;border:1px solid transparent;background:transparent;cursor:pointer;
+  text-decoration:none;color:var(--fg);white-space:nowrap}
+.ib:hover{background:var(--raise);border-color:var(--line)}
+.ib.pri{background:var(--acc);color:var(--accfg);font-weight:600}
+.ib.on{background:var(--warn);color:#1c1300}
+.ib:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+aside{border-right:1px solid var(--line);background:var(--surf2);overflow-y:auto;padding:8px}
+.gh{font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;margin:8px 6px 6px}
+.si{display:flex;gap:8px;width:100%;text-align:left;padding:8px 9px;border-radius:9px;border:1px solid transparent;background:transparent;cursor:pointer;margin-bottom:2px}
+.si:hover{background:var(--raise)}
+.si.cur{background:var(--raise);border-color:var(--line2);box-shadow:inset 3px 0 0 var(--acc)}
+.si .st{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none;background:var(--dim)}
+.si .st.busy{background:var(--ok);box-shadow:0 0 0 3px rgba(60,207,124,.18)}
+.si .st.idle{background:var(--acc)}
+.si .st.dead{background:transparent;border:1.5px solid var(--dim)}
+.si .nm{flex:1;min-width:0}
+.si b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.si span{font-size:11px;color:var(--mut)}
+.tag{font:600 10px var(--mono);text-transform:uppercase;padding:1px 5px;border-radius:5px;border:1px solid var(--line);color:var(--mut);margin-left:4px}
+.tag.agent{color:var(--warn);border-color:#6b5420}
+.empty{color:var(--dim);font-size:12px;text-align:center;padding:24px 10px;line-height:1.6}
+main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.bar{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--surf);min-height:44px}
+.bar .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.bar .m{color:var(--mut);font:11px var(--mono);white-space:nowrap}
+.note{padding:7px 12px;font-size:12px;color:#ffd27a;background:rgba(242,179,61,.08);border-bottom:1px solid #4b3c19}
+#term{flex:1;min-height:0;padding:6px 4px 4px 8px;background:#06080b}
+#none{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--mut);padding:20px;text-align:center}
+#none code{font:12px var(--mono);background:var(--raise);padding:2px 6px;border-radius:5px}
+#menu{display:none}
+dialog{background:var(--surf2);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(420px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog h2{margin:0 0 12px;font-size:15px}
+dialog label{display:block;font-size:12px;color:var(--mut);margin:10px 0 5px}
+dialog input,dialog select{width:100%;height:38px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:0 10px;font:13px var(--mono)}
+.drow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.btn{height:36px;border-radius:8px;border:1px solid var(--line);background:var(--raise);cursor:pointer;padding:0 14px}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:var(--accfg);font-weight:600}
+.btn.del{color:#ffb4b0}
+@media (max-width:760px){
+  #app{grid-template-columns:1fr;grid-template-rows:48px 1fr}
+  aside{position:fixed;top:48px;left:0;bottom:0;width:min(300px,86vw);z-index:5;transform:translateX(-105%);transition:transform .18s;box-shadow:0 10px 32px rgba(0,0,0,.55)}
+  body.side aside{transform:none}
+  #menu{display:inline-flex}
+  .lbl{display:none}
+  .bar .m{display:none}
+}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-kvm" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+</svg>
+<div id="app">
+  <header>
+    <button class="ib" id="menu" title="Danh sách phiên"><svg class="i"><use href="#i-menu"/></svg></button>
+    <h1><span class="dot" id="dConn"></span>Terminal W105D</h1>
+    <span class="sp"></span>
+    <button class="ib pri" id="bNew"><svg class="i"><use href="#i-plus"/></svg><span class="lbl">Phiên mới</span></button>
+    <a class="ib" href="/debug.md" target="_blank" title="Hướng dẫn cho agent"><svg class="i"><use href="#i-doc"/></svg><span class="lbl">debug.md</span></a>
+    <a class="ib" href="/" title="Về màn hình KVM"><svg class="i"><use href="#i-kvm"/></svg><span class="lbl">KVM</span></a>
+  </header>
+  <aside id="side"><div id="list"></div></aside>
+  <main>
+    <div class="bar" id="bar" hidden>
+      <span class="t" id="tName"></span><span class="m" id="tMeta"></span><span class="sp"></span>
+      <button class="ib" id="bCtl" title="Cho phép gõ phím vào phiên này"><svg class="i"><use href="#i-kbd"/></svg><span class="lbl">Điều khiển</span></button>
+      <button class="ib" id="bKill" title="Kết thúc và xoá phiên"><svg class="i"><use href="#i-x"/></svg><span class="lbl">Kết thúc</span></button>
+    </div>
+    <div class="note" id="note" hidden></div>
+    <div id="term" hidden></div>
+    <div id="none">
+      <div style="font-size:15px;color:var(--fg)">Chưa chọn phiên nào</div>
+      <div>Phiên do agent tạo qua API sẽ hiện ở cột bên trái và cập nhật trực tiếp.<br>
+        Hướng dẫn cho agent: <a href="/debug.md" target="_blank" style="color:var(--acc)">/debug.md</a></div>
+    </div>
+  </main>
+</div>
+<dialog id="dNew">
+  <h2>Phiên terminal mới</h2>
+  <label for="nName">Tên</label><input id="nName" maxlength="60" placeholder="VD: kiểm tra mạng">
+  <label for="nUser">Chạy với quyền</label>
+  <select id="nUser"><option value="root">root</option><option value="sang">sang</option></select>
+  <div class="drow"><button class="btn" id="nCancel">Huỷ</button><button class="btn pri" id="nOk">Mở</button></div>
+</dialog>
+<script src="/vendor/xterm.js"></script>
+<script src="/vendor/addon-fit.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let list = [], cur = null, ws = null, term = null, fit = null, ctl = false, wsGen = 0;
+const ctlFor = {};                         // id -> đã bật điều khiển
+async function api(method, p, body){
+  const r = await fetch(p, {method, headers: body ? {'Content-Type':'application/json'} : {}, body: body ? JSON.stringify(body) : undefined});
+  if (r.status === 401){ location.replace('/login?next=/terminal'); throw new Error('401') }
+  const d = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
+  return d;
+}
+const ago = ms => { if (!ms) return '–'; const s = Math.round((Date.now() - ms) / 1000); return s < 5 ? 'vừa xong' : s < 60 ? s + ' giây' : s < 3600 ? Math.round(s / 60) + ' phút' : Math.round(s / 3600) + ' giờ' };
+function state(s){ return s.exited ? 'dead' : (Date.now() - s.lastOut < 3000 ? 'busy' : 'idle') }
+function paintList(){
+  const L = $('list'); L.innerHTML = '';
+  if (!list.length){ L.innerHTML = '<div class="empty">Chưa có phiên nào.<br>Bấm “Phiên mới” hoặc để agent tạo qua API.</div>'; return }
+  const groups = [['Đang chạy', list.filter(s => !s.exited)], ['Đã thoát', list.filter(s => s.exited)]];
+  for (const [g, arr] of groups){
+    if (!arr.length) continue;
+    const h = document.createElement('div'); h.className = 'gh'; h.textContent = g; L.appendChild(h);
+    for (const s of arr.slice().reverse()){
+      const b = document.createElement('button'); b.className = 'si' + (cur === s.id ? ' cur' : '');
+      b.innerHTML = `<span class="st ${state(s)}"></span><span class="nm"><b>${esc(s.name)}</b><span>${esc(s.user)} · ${s.exited ? 'thoát mã ' + s.code : 'hoạt động ' + ago(s.lastOut)}${s.clients ? ' · ' + s.clients + ' người xem' : ''}</span></span><span class="tag ${s.by === 'agent' ? 'agent' : ''}">${s.by === 'agent' ? 'agent' : s.by === 'web' ? 'web' : esc(s.by)}</span>`;
+      b.onclick = () => { select(s.id); document.body.classList.remove('side') };
+      L.appendChild(b);
+    }
+  }
+}
+async function refresh(){
+  try{ list = await api('GET', '/api/sessions'); $('dConn').className = 'dot ok' }catch(_){ $('dConn').className = 'dot'; return }
+  paintList();
+  if (cur){ const s = list.find(x => x.id === cur); if (!s){ select(null); return } paintBar(s) }
+  else if (!location.hash && list.some(s => !s.exited)) select(list.filter(s => !s.exited).slice(-1)[0].id);
+}
+function paintBar(s){
+  $('bar').hidden = false; $('tName').textContent = s.name;
+  $('tMeta').textContent = `${s.user}@w105d · ${s.cols}×${s.rows} · ${s.by === 'agent' ? 'agent tạo' : 'tạo từ web'} · ${s.id}`;
+  $('bCtl').hidden = s.exited; $('bCtl').classList.toggle('on', ctl);
+  const n = $('note');
+  if (s.exited){ n.hidden = false; n.textContent = `Phiên đã kết thúc (mã ${s.code}). Output cuối vẫn xem được.` }
+  else if (!ctl){ n.hidden = false; n.innerHTML = 'Đang <b>chỉ xem</b>. Bấm “Điều khiển” để gõ vào phiên này (root).' }
+  else n.hidden = true;
+  if (term) term.options.disableStdin = !ctl || s.exited;
+}
+function ensureTerm(){
+  if (term) return;
+  term = new Terminal({fontFamily:'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace', fontSize:13, cursorBlink:true, scrollback:5000,
+    theme:{background:'#06080b', foreground:'#e7edf3', cursor:'#4cb8ff', selectionBackground:'#27445e'}, allowProposedApi:false});
+  fit = new FitAddon.FitAddon(); term.loadAddon(fit); term.open($('term'));
+  term.onData(d => { if (ctl && ws && ws.readyState === 1) ws.send(JSON.stringify({t:'in', d})) });
+  new ResizeObserver(() => doFit()).observe($('term'));
+}
+function doFit(){
+  if (!term || $('term').hidden) return;
+  try{ fit.fit() }catch(_){ return }
+  if (ctl && ws && ws.readyState === 1) ws.send(JSON.stringify({t:'rs', c:term.cols, r:term.rows}));
+}
+function select(id){
+  cur = id; wsGen++;
+  if (ws){ try{ ws.close() }catch(_){} ws = null }
+  history.replaceState(null, '', id ? '#s=' + id : location.pathname);
+  paintList();
+  if (!id){ $('bar').hidden = $('note').hidden = $('term').hidden = true; $('none').hidden = false; return }
+  const s = list.find(x => x.id === id);
+  ctl = ctlFor[id] !== undefined ? ctlFor[id] : !!(s && s.by === 'web');
+  $('none').hidden = true; $('term').hidden = false; ensureTerm(); term.reset();
+  if (s) paintBar(s);
+  setTimeout(doFit, 0); connect(id, wsGen);
+}
+function connect(id, gen){
+  const w = ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/sessions/' + id + '/ws');
+  w.onmessage = e => {
+    if (gen !== wsGen) return;
+    const d = e.data;
+    if (d[0] === '{' && d.startsWith('{"t":')){ try{ const m = JSON.parse(d); if (m.t === 'hello'){ doFit(); return } if (m.t === 'exit'){ refresh(); return } }catch(_){} }
+    term.write(d);
+  };
+  w.onclose = () => { if (gen === wsGen && cur === id){ const s = list.find(x => x.id === id); if (s && !s.exited) setTimeout(() => { if (gen === wsGen) connect(id, gen) }, 1500); refresh() } };
+}
+$('bCtl').onclick = () => { ctl = !ctl; ctlFor[cur] = ctl; const s = list.find(x => x.id === cur); if (s) paintBar(s); if (ctl){ doFit(); term.focus() } };
+$('bKill').onclick = async () => {
+  const s = list.find(x => x.id === cur); if (!s) return;
+  if (!confirm(`Kết thúc và xoá phiên “${s.name}”?` + (s.by === 'agent' ? '\nPhiên này do agent tạo – agent có thể đang dùng.' : ''))) return;
+  try{ await api('DELETE', '/api/sessions/' + s.id) }catch(e){ alert(e.message) }
+  select(null); refresh();
+};
+$('bNew').onclick = () => { $('nName').value = ''; $('dNew').showModal(); $('nName').focus() };
+$('nCancel').onclick = () => $('dNew').close();
+$('nOk').onclick = async () => {
+  try{
+    ensureTerm();
+    const s = await api('POST', '/api/sessions', {name:$('nName').value.trim(), user:$('nUser').value, cols:term.cols || 120, rows:term.rows || 32});
+    $('dNew').close(); ctlFor[s.id] = true; await refresh(); select(s.id); term.focus();
+  }catch(e){ alert('Không tạo được phiên: ' + e.message) }
+};
+$('nName').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('nOk').click() } });
+$('menu').onclick = () => document.body.classList.toggle('side');
+const h = /#s=([\w-]+)/.exec(location.hash);
+refresh().then(() => { if (h && list.find(s => s.id === h[1])) select(h[1]) });
+setInterval(refresh, 2000);
+</script>
+</body></html>

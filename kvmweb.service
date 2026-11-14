@@ -1,13 +1,12 @@
 [Unit]
-Description=ZTE Web KVM (MJPEG stream + input forward)
-After=network.target hidfwd.service
+Description=KVM web (HDMI capture + H.264 + API + terminal proxy) cong 8090
+After=network.target hidfwd.service usb-kvm-gadget.service
 
 [Service]
-Type=simple
-User=sang
+WorkingDirectory=/home/sang/Run/kvm
 ExecStart=/usr/bin/python3 /home/sang/Run/kvm/kvmweb.py --port 8090
 Restart=always
-RestartSec=2
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target

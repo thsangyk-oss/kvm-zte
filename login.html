@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06080b">
+<title>W105D KVM</title>
+<style>
+:root{--bg:#06080b;--surf:#11151b;--surf2:#161b22;--raise:#1d242e;--line:#2a333f;--line2:#3a4553;--fg:#e7edf3;--mut:#8d99a7;--dim:#5f6b78;
+  --acc:#4cb8ff;--accfg:#00121f;--ok:#3ccf7c;--warn:#f2b33d;--bad:#f2615b;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef1f5;--surf:#fff;--surf2:#f6f8fa;--raise:#eef1f5;--line:#d5dbe3;--line2:#bcc5d0;
+  --fg:#111820;--mut:#56616d;--dim:#7a8590;--acc:#0b7fd1;--accfg:#fff;--ok:#16a34a;--warn:#b7791f;--bad:#dc2626}}
+:root[data-theme="light"]{--bg:#eef1f5;--surf:#fff;--surf2:#f6f8fa;--raise:#eef1f5;--line:#d5dbe3;--line2:#bcc5d0;--fg:#111820;--mut:#56616d;--dim:#7a8590;--acc:#0b7fd1;--accfg:#fff}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.card{width:100%;max-width:420px;background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:26px 22px;box-shadow:0 16px 48px rgba(0,0,0,.35)}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--raise);border:1px solid var(--line);display:grid;place-items:center;color:var(--acc)}
+.logo svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+h1{font-size:17px;margin:0}
+.sub{color:var(--mut);font-size:12px}
+p{color:var(--mut);margin:0 0 14px}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:6px}
+input{width:100%;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:0 12px;font:15px var(--mono)}
+input:focus{outline:2px solid var(--acc);outline-offset:-1px}
+button{width:100%;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--raise);color:var(--fg);font:600 14px inherit;cursor:pointer;margin-top:12px}
+button.pri{background:var(--acc);border-color:var(--acc);color:var(--accfg)}
+button:disabled{opacity:.55;cursor:default}
+.err{color:var(--bad);font-size:13px;min-height:20px;margin-top:10px}
+.claim{border:1px dashed var(--line2);border-radius:12px;padding:14px;margin-bottom:18px;background:var(--surf2)}
+.claim b{display:block;margin-bottom:4px}
+.tok{font:600 18px var(--mono);letter-spacing:.02em;text-align:center;padding:14px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--line);
+  user-select:all;-webkit-user-select:all;word-break:break-all}
+.or{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:12px;margin:18px 0 14px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.hint{color:var(--dim);font-size:12px;margin-top:16px}
+code{font:12px var(--mono);background:var(--raise);padding:1px 5px;border-radius:5px}
+[hidden]{display:none!important}
+</style></head>
+<body><main><div class="card">
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+    <div><h1>W105D KVM</h1><div class="sub" id="host"></div></div>
+  </div>
+
+  <div id="vClaim" hidden>
+    <div class="claim">
+      <b>W105D vừa cắm nguồn</b>
+      <p style="margin:0 0 4px">Mỗi lần cắm nguồn W105D tạo một token mới. Người bấm đầu tiên sẽ nhận token và được đăng nhập luôn; sau đó nút này biến mất.</p>
+      <button class="pri" id="bClaim">Claim token</button>
+    </div>
+  </div>
+
+  <div id="vToken" hidden>
+    <p>Token của lần cắm nguồn này. <b>Lưu lại</b>: dùng để đăng nhập trên thiết bị khác và đưa cho agent (<code>Authorization: Bearer …</code>).</p>
+    <div class="tok" id="tok"></div>
+    <button id="bCopy">Copy token</button>
+    <button class="pri" id="bGo">Vào KVM</button>
+  </div>
+
+  <form id="vLogin" hidden autocomplete="on">
+    <div class="or" id="orLine" hidden>hoặc đăng nhập bằng token</div>
+    <label for="t">Token</label>
+    <input id="t" name="password" type="password" placeholder="xd-xxxxx-xxxxx-xxxxx-xxxxx" autocomplete="current-password" spellcheck="false" autocapitalize="off">
+    <button class="pri" id="bLogin" type="submit">Đăng nhập</button>
+    <div class="err" id="err"></div>
+    <div class="hint">Quên token? Khởi động lại W105D để claim token mới, hoặc trên box (S-remote :2209 / ssh): <code>sudo xd-kvm-token</code>.</div>
+  </form>
+</div></main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const next = (() => { const n = new URLSearchParams(location.search).get('next') || '/'; return /^\/[\w\/.\-]*$/.test(n) ? n : '/' })();
+$('host').textContent = location.host;
+async function state(){
+  try{
+    const d = await (await fetch('/auth/state', {cache:'no-store'})).json();
+    if (d.authed){ location.replace(next); return }
+    $('vClaim').hidden = d.claimed; $('vLogin').hidden = false; $('orLine').hidden = d.claimed;
+    if (d.claimed) $('t').focus();
+  }catch(_){ $('vLogin').hidden = false; $('err').textContent = 'Không kết nối được W105D.' }
+}
+$('bClaim').onclick = async () => {
+  $('bClaim').disabled = true;
+  try{
+    const r = await fetch('/auth/claim', {method:'POST'}); const d = await r.json();
+    if (!r.ok){ $('err').textContent = d.error || 'Không claim được'; $('vClaim').hidden = true; $('orLine').hidden = true; $('bClaim').disabled = false; return }
+    $('tok').textContent = d.token; $('vClaim').hidden = true; $('vLogin').hidden = true; $('vToken').hidden = false;
+  }catch(e){ $('err').textContent = 'Lỗi: ' + e.message; $('bClaim').disabled = false }
+};
+$('bCopy').onclick = async () => {
+  const t = $('tok').textContent; let ok = false;
+  try{ if (navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(t); ok = true } }catch(_){}
+  if (!ok){ const r = document.createRange(); r.selectNodeContents($('tok')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); try{ ok = document.execCommand('copy') }catch(_){} }
+  $('bCopy').textContent = ok ? 'Đã copy ✓' : 'Chọn chữ ở trên rồi copy tay';
+};
+$('bGo').onclick = () => location.replace(next);
+$('vLogin').onsubmit = async e => {
+  e.preventDefault(); $('err').textContent = ''; $('bLogin').disabled = true;
+  try{
+    const r = await fetch('/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token:$('t').value.trim()})});
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) location.replace(next); else $('err').textContent = d.error || ('Lỗi HTTP ' + r.status);
+  }catch(e){ $('err').textContent = 'Lỗi: ' + e.message }
+  $('bLogin').disabled = false;
+};
+state();
+</script>
+</body></html>

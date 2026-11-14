@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KVM Clipboard</title>
+<style>
+:root{--bg:#f6f7f9;--surf:#fff;--fg:#14171c;--mut:#5d6673;--line:#dde1e7;--acc:#2563eb;--ok:#16a34a;--bad:#dc2626;--r:12px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1116;--surf:#171b22;--fg:#e7eaf0;--mut:#8b94a3;--line:#2a313c;--acc:#5b8cff;--ok:#22c55e;--bad:#f87171}}
+:root[data-theme="dark"]{--bg:#0e1116;--surf:#171b22;--fg:#e7eaf0;--mut:#8b94a3;--line:#2a313c;--acc:#5b8cff;--ok:#22c55e;--bad:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:18px;margin:4px 0 2px}
+.st{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:13px;margin-bottom:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--mut);flex:none}.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}
+section{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:0 0 8px}
+textarea{width:100%;min-height:120px;resize:vertical;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;font:14px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{flex:1;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--surf);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+button:disabled{opacity:.5}
+.hint{font-size:12px;color:var(--mut);margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+  <h1>KVM Clipboard</h1>
+  <div class="st"><span class="dot" id="dot"></span><span id="st">Đang kết nối W105D…</span></div>
+  <section>
+    <h2>Từ KVM</h2>
+    <textarea id="rx" readonly placeholder="Nội dung gửi từ trang KVM sẽ hiện ở đây"></textarea>
+    <div class="row"><button class="pri" id="bCopy" disabled>Copy vào máy này</button></div>
+  </section>
+  <section>
+    <h2>Gửi lên KVM</h2>
+    <textarea id="tx" placeholder="Chạm giữ → Dán, rồi bấm Gửi"></textarea>
+    <div class="row"><button id="bPaste" hidden>Dán từ clipboard</button><button class="pri" id="bSend">Gửi</button></div>
+    <div class="hint">Android không cho trang web đọc clipboard tự động, nên cần dán tay. Chỉ hoạt động khi trang này đang mở.</div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let id = null;
+try{ id = localStorage.getItem('xdclip-id') }catch(_){}
+if (!id){ id = 'web-' + Math.random().toString(36).slice(2, 8); try{ localStorage.setItem('xdclip-id', id) }catch(_){} }
+const ua = navigator.userAgent, am = ua.match(/Android [\d.]+; ([^;)]+)/);
+const os = /Android/.test(ua) ? 'android' : /iPhone|iPad/.test(ua) ? 'ios' : 'web';
+const host = am ? am[1].replace(/ Build.*/, '').trim() : os === 'ios' ? 'iPhone/iPad' : 'Trình duyệt';
+let seq = -1, out = null, stop = false;
+async function tick(){
+  if (stop) return;
+  if (document.visibilityState !== 'visible'){ setTimeout(tick, 1000); return }
+  const b = {id, host, user:'', os, v:1, seq, err:''};
+  if (out !== null) b.text = out;
+  try{
+    const r = await fetch('/clip/agent', {method:'POST', headers:{'Content-Type':'application/json', 'X-Clip-Key':'__KEY__'}, body:JSON.stringify(b)});
+    const d = await r.json();
+    if (out !== null && b.text === out){ out = null; $('st').textContent = 'Đã gửi lên KVM'; $('tx').value = '' }
+    if (d.uninstall){ stop = true; $('dot').className = 'dot'; $('st').textContent = 'Đã gỡ khỏi KVM. Tải lại trang để kết nối lại.'; return }
+    if (d.push != null && d.seq !== seq){ $('rx').value = d.push; $('bCopy').disabled = !d.push }
+    seq = d.seq;
+    $('dot').className = 'dot ok';
+    if (!/Đã gửi/.test($('st').textContent)) $('st').textContent = 'Đã kết nối W105D';
+  }catch(_){ $('dot').className = 'dot bad'; $('st').textContent = 'Mất kết nối W105D, đang thử lại…' }
+  setTimeout(tick, 1000);
+}
+$('bCopy').onclick = async () => {
+  const t = $('rx').value; let ok = false;
+  try{ if (navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(t); ok = true } }catch(_){}
+  if (!ok){ const e = $('rx'); e.focus(); e.select(); e.setSelectionRange(0, t.length); try{ ok = document.execCommand('copy') }catch(_){} }
+  $('st').textContent = ok ? 'Đã copy vào clipboard máy này' : 'Không copy được: chạm giữ để chọn và copy tay';
+};
+if (navigator.clipboard && navigator.clipboard.readText && window.isSecureContext){
+  $('bPaste').hidden = false;
+  $('bPaste').onclick = async () => { try{ $('tx').value = await navigator.clipboard.readText() }catch(e){ $('st').textContent = 'Không đọc được clipboard: ' + e.message } };
+}
+$('bSend').onclick = () => { const t = $('tx').value; if (!t) return; out = t; $('st').textContent = 'Đang gửi…' };
+tick();
+</script>
+</body>
+</html>

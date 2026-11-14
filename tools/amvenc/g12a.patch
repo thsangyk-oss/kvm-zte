@@ -1,0 +1,31 @@
+diff --git a/venc-h264/compat.c b/venc-h264/compat.c
+index 6d33ca3..cfb58e1 100644
+--- a/venc-h264/compat.c
++++ b/venc-h264/compat.c
+@@ -158,6 +158,8 @@ int venc_hw_init(void)
+ 	int ret, irq;
+ 
+ 	np = of_find_compatible_node(NULL, NULL, "amlogic,sm1-vdec");
++	if (!np)
++		np = of_find_compatible_node(NULL, NULL, "amlogic,g12a-vdec");
+ 	if (!np)
+ 		return -ENODEV;
+ 	ret = of_address_to_resource(np, 0, &res);	/* "dos" */
+diff --git a/venc-h264/compat.h b/venc-h264/compat.h
+index 4593e0e..1500db8 100644
+--- a/venc-h264/compat.h
++++ b/venc-h264/compat.h
+@@ -114,8 +114,11 @@ static inline void venc_ao_write(u32 r, u32 v)
+ #define AM_MESON_CPU_MAJOR_ID_T3X	MESON_CPU_MAJOR_ID_T3X
+ #define AM_MESON_CPU_MAJOR_ID_TXHD2	MESON_CPU_MAJOR_ID_TXHD2
+ #define AM_MESON_CPU_MAJOR_ID_S7D	MESON_CPU_MAJOR_ID_S7D
+-static inline int get_cpu_type(void) { return MESON_CPU_MAJOR_ID_SM1; }
+-static inline int get_cpu_major_id(void) { return MESON_CPU_MAJOR_ID_SM1; }
++#include <linux/of.h>
++/* G12A (S905X2): HCODEC power = SLEEP0[1:0], ISO0[5:4]; SM1: bit 0 */
++static inline int venc_soc(void) { return of_machine_is_compatible("amlogic,sm1") ? MESON_CPU_MAJOR_ID_SM1 : MESON_CPU_MAJOR_ID_G12A; }
++static inline int get_cpu_type(void) { return venc_soc(); }
++static inline int get_cpu_major_id(void) { return venc_soc(); }
+ 
+ /* ---- canvas ---- */
+ #define CANVAS_ADDR_NOWRAP	MESON_CANVAS_WRAP_NONE

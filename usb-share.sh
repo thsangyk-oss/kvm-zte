@@ -2,11 +2,13 @@
 # Gan/rut USB luu tru vao LUN mass_storage cua gadget -> PC dich thay nhu USB that.
 # udev goi: usb-share.sh add|remove <kernel-name>   (vd: sda)
 # Chay tay:  usb-share.sh rescan  (gan lai disk usb con lai sau khi doi cau hinh)
+#            usb-share.sh off|on  tat/bat chuyen USB sang may dich (giu qua reboot, trang KVM tab Luu tru)
 set -u
 
 LUN=/sys/kernel/config/usb_gadget/kvm/functions/mass_storage.usb0/lun.0
 STATE=/run/kvm-usb-share
 LOG=/run/kvm-usb-share.log
+OFF=/var/lib/xd-kvm/usb-share.off    # co file = khong tu gan USB cam vao box cho may dich
 
 log() { echo "$(date '+%F %T') $*" >> "$LOG"; }
 
@@ -53,8 +55,11 @@ rescan() {   # gan disk usb dau tien con lai
     return 1
 }
 
+off() { [ -e "$OFF" ]; }
+
 case "${1:-}" in
     add)
+        off && { log "bo qua add ${2:-} (dang tat)"; exit 0; }
         d=$(disk_of "${2:-}")
         [ -n "$d" ] && assign "$d"
         ;;
@@ -64,11 +69,22 @@ case "${1:-}" in
             echo > "$LUN/file" 2>/dev/null || true   # file rong = eject
             rm -f "$STATE"
             log "eject $d"
-            rescan || true
+            off || rescan || true
         fi
         ;;
     rescan)
+        off && { log "bo qua rescan (dang tat)"; exit 0; }
         rescan || log "khong tim thay disk usb nao"
+        ;;
+    on)
+        rm -f "$OFF"; log "bat chuyen USB sang may dich"
+        rescan || log "khong tim thay disk usb nao"
+        ;;
+    off)
+        mkdir -p "$(dirname "$OFF")"; touch "$OFF"
+        echo "" > "$LUN/file" 2>/dev/null || true
+        rm -f "$STATE"
+        log "tat chuyen USB sang may dich (eject)"
         ;;
     detach)   # eject mem, KHONG gan lai disk khac (de flash image vao stick)
         echo "" > "$LUN/file" 2>/dev/null || true
@@ -76,7 +92,7 @@ case "${1:-}" in
         log "detach (eject mem)"
         ;;
     *)
-        echo "usage: $0 add|remove <dev> | rescan | detach" >&2
+        echo "usage: $0 add|remove <dev> | rescan | detach | on | off" >&2
         exit 2
         ;;
 esac

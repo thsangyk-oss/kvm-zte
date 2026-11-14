@@ -1,0 +1,16 @@
+#!/bin/sh
+# xd-kvm-token: xem / tao lai token dang nhap trang KVM (:8090).
+#   sudo xd-kvm-token          in token hien tai (va da claim chua)
+#   sudo xd-kvm-token reset    tao token moi, CHUA claim (trang chu hien lai nut "Claim token"); moi phien dang nhap bi dang xuat
+# Token nam o /run/xd-kvm/auth.json (tmpfs): moi lan W105D khoi dong lai se co token moi.
+F=/run/xd-kvm/auth.json
+case "$1" in
+  reset)
+    rm -f "$F"
+    curl -s -o /dev/null http://127.0.0.1:8090/auth/state || true   # kvmweb tao token moi ngay
+    echo "da tao token moi - mo trang KVM de claim, hoac: sudo xd-kvm-token" ;;
+  ""|show)
+    [ -r "$F" ] || curl -s -o /dev/null http://127.0.0.1:8090/auth/state
+    python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d["token"]);print("claimed" if d.get("claimed") else "chua claim",file=sys.stderr)' "$F" ;;
+  *) echo "dung: xd-kvm-token [show|reset]" >&2; exit 2 ;;
+esac

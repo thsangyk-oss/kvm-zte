@@ -1,137 +1,624 @@
 <!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-visual">
-<meta name="theme-color" content="#07090c">
+<meta name="theme-color" content="#06080b">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
-<title>ZTE KVM</title>
+<title>W105D KVM</title>
 <style>
-:root{--bg:#07090c;--panel:rgba(18,22,28,.95);--line:#2a323d;--fg:#e6edf3;--mut:#8b97a5;
---acc:#3fb6ff;--ok:#38d27a;--warn:#f0b43c;--bad:#f0605a;--key:#1c232d;--keyd:#2b3644}
+:root{
+  --bg:#06080b; --surf:rgba(17,21,27,.94); --surf2:#161b22; --raise:#1d242e; --raise2:#27303c;
+  --line:#2a333f; --line2:#3a4553; --fg:#e7edf3; --mut:#8d99a7; --dim:#5f6b78;
+  --acc:#4cb8ff; --accfg:#00121f; --ok:#3ccf7c; --warn:#f2b33d; --bad:#f2615b;
+  --r:10px; --shadow:0 10px 32px rgba(0,0,0,.55);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);overflow:hidden;overscroll-behavior:none;
-font:13px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none;touch-action:none}
-#stage{position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;touch-action:none}
+  font:13px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none;touch-action:none}
+button,select{font:inherit;color:inherit}
+svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- video ---------- */
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
 #cv{display:block;background:#000;cursor:crosshair;touch-action:none;outline:none;width:0;height:0;transform-origin:0 0;will-change:transform}
-#stage{overflow:hidden}
-#mZoom{flex:0 0 52px!important;font-variant-numeric:tabular-nums}
-#mZoom.on{background:var(--acc);color:#001018}
 body.rel #cv{cursor:pointer}
-#cur{position:fixed;left:0;top:0;width:18px;height:18px;margin:-2px 0 0 -2px;pointer-events:none;z-index:5;display:none;
-filter:drop-shadow(0 0 2px #000)}
+#cur{position:fixed;left:0;top:0;width:18px;height:18px;margin:-2px 0 0 -2px;pointer-events:none;z-index:5;display:none;filter:drop-shadow(0 0 2px #000)}
 body.touch.pad #cur{display:block}
-#hot{position:fixed;top:0;left:0;right:0;height:10px;z-index:9}
-body.touch #hot{display:none}
-#top{position:fixed;top:0;left:50%;transform:translate(-50%,0);transition:transform .2s ease,opacity .2s ease;
-z-index:10;display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--panel);
-border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;backdrop-filter:blur(8px);
-max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center;box-shadow:0 6px 24px #0008}
-#top.hide{transform:translate(-50%,-100%);opacity:0;pointer-events:none}
-body.touch #top{padding:10px;gap:8px;padding-top:max(10px,env(safe-area-inset-top))}
-.b{background:var(--key);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 9px;
-font:inherit;cursor:pointer;white-space:nowrap;line-height:1.2;touch-action:manipulation}
-body.touch .b{padding:9px 12px;font-size:14px}
-.b:hover{border-color:var(--acc)}
-.b.on{background:var(--acc);color:#001018;border-color:var(--acc)}
-select.b{padding:4px 6px}
-.sep{width:1px;height:20px;background:var(--line);margin:0 2px}
-.brand{font-weight:700;letter-spacing:.5px;padding:0 4px}
-.st{display:flex;align-items:center;gap:5px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);padding:0 4px;white-space:nowrap}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--bad);flex:none}
-.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}
-.num{color:var(--fg);min-width:2.2em;text-align:right;display:inline-block}
-#msg{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);padding:14px 18px;border-radius:10px;
-background:var(--panel);border:1px solid var(--line);color:var(--mut);font-size:15px;pointer-events:none;
-text-align:center;max-width:90vw;z-index:4}
+
+/* ---------- thanh trên (desktop) ---------- */
+#hot{position:fixed;top:0;left:0;right:0;height:12px;z-index:9}
+#handle{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:6px;
+  padding:3px 12px 5px;background:var(--surf);border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px;
+  color:var(--mut);font:11px var(--mono);cursor:pointer;opacity:.75;transition:opacity .2s}
+#handle:hover{opacity:1}
+#top{position:fixed;top:0;left:50%;transform:translate(-50%,0);transition:transform .18s ease,opacity .18s ease;z-index:10;
+  display:flex;gap:4px;align-items:center;padding:6px;background:var(--surf);border:1px solid var(--line);border-top:0;
+  border-radius:0 0 14px 14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:var(--shadow);max-width:calc(100vw - 16px)}
+#top.hide{transform:translate(-50%,-110%);opacity:0;pointer-events:none}
+#top:not(.hide)~#handle{opacity:0;pointer-events:none}
+body.touch #top,body.touch #handle,body.touch #hot{display:none}
+.vsep{width:1px;align-self:stretch;margin:4px 4px;background:var(--line)}
+.ib{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;border:1px solid transparent;
+  background:transparent;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.ib:hover{background:var(--raise);border-color:var(--line)}
+.ib:focus-visible,.btn:focus-visible,.seg button:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.ib.on{background:var(--acc);color:var(--accfg)}
+.ib.icon{width:32px;padding:0;justify-content:center}
+.ib .lbl{font-weight:500}
+@media (max-width:1100px){#top .lbl.opt{display:none}}
+
+/* trạng thái */
+.stat{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:8px;background:var(--surf2);
+  border:1px solid var(--line);cursor:pointer;font:12px var(--mono);color:var(--mut);white-space:nowrap}
+.stat:hover{border-color:var(--line2)}
+.stat b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--bad);flex:none;box-shadow:0 0 0 2px rgba(0,0,0,.25)}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.off{background:var(--dim)}
+.dots{display:inline-flex;gap:4px}
+.usbb .dot{margin-right:2px}
+
+/* ---------- ngăn phím tắt (trái trên desktop / bottom sheet trên mobile) ---------- */
+#kpanel{position:fixed;z-index:30;top:0;left:0;bottom:0;width:360px;max-width:100vw;background:var(--surf2);border-right:1px solid var(--line);
+  box-shadow:var(--shadow);transform:translateX(-105%);transition:transform .2s ease;display:flex;flex-direction:column;touch-action:pan-y}
+body.kp #kpanel{transform:none}
+body.touch #kpanel{top:auto;right:0;width:auto;height:78vh;border-right:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;
+  transform:translateY(105%);padding-bottom:env(safe-area-inset-bottom)}
+body.touch.kp #kpanel{transform:none}
+.khd{display:flex;flex-direction:column;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.khd .inp{height:34px}
+.kb{overflow-y:auto;padding:2px 10px 10px;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+#kList{flex:1}
+.kmacs{flex:none;max-height:30vh;border-top:1px solid var(--line)}
+.kmacs:has(#kmac:empty){display:none}
+#kmac{display:flex;flex-wrap:wrap;gap:6px}
+.kgh{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;background:var(--surf2);padding:10px 4px 6px;font-size:11px;font-weight:600;
+  color:var(--dim);text-transform:uppercase;letter-spacing:.07em}
+.lnk{margin-left:auto;border:0;background:none;color:var(--acc);cursor:pointer;font-size:11px;text-transform:none;letter-spacing:0;padding:0}
+.sk{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:5px 8px;border:1px solid transparent;border-radius:8px;
+  background:transparent;cursor:pointer;text-align:left;touch-action:manipulation}
+.sk:hover,.sk:focus-visible{background:var(--raise);border-color:var(--line);outline:none}
+.sk:active{background:var(--raise2)}
+.sk .sn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sk .kc{display:inline-flex;gap:3px;flex:none}
+.sk kbd{min-width:22px;text-align:center;font-size:12px;padding:1px 5px;background:var(--bg);color:var(--fg)}
+.sk.danger .sn{color:#ffb4b0}
+.sk .tag{font-size:10px;color:var(--warn);border:1px solid #6b5420;border-radius:5px;padding:0 5px;flex:none}
+.sk.run{border-color:var(--warn);background:rgba(242,179,61,.1)}
+.kbios{flex:none;padding:0 10px 8px;border-bottom:1px solid var(--line)}
+.brow{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}.brow:empty{display:none}
+.bk{min-width:38px;height:34px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--fg);cursor:pointer;
+  font:600 12px var(--mono);touch-action:manipulation;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+.bk small{font:400 9.5px system-ui,sans-serif;color:var(--mut);white-space:nowrap}
+.bk.boot{flex:1;min-width:58px;height:40px;border-color:#6b5420}
+.bk.run{border-color:var(--warn);background:rgba(242,179,61,.15)}
+.bk.cmd{flex:1;font:500 12px system-ui,sans-serif;height:32px}
+.bk:hover{border-color:var(--acc)}.bk:active{background:var(--raise2)}
+.mchip{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--raise);cursor:pointer;font-size:12px}
+.mchip:hover{border-color:var(--acc)}
+.mchip.on{border-color:var(--acc);color:var(--acc);font-weight:600}.mchip:disabled{opacity:.4;cursor:default}
+.kft{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line)}
+.kft .btn{margin-left:auto}
+.kpin{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);cursor:pointer}
+.ib.on .lbl{color:inherit}
+
+/* ---------- bảng điều khiển (drawer desktop / sheet mobile) ---------- */
+#scrim{position:fixed;inset:0;z-index:29;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .18s}
+body.panel #scrim,body.kp #scrim{opacity:1;pointer-events:auto}
+#panel{position:fixed;z-index:30;top:0;right:0;bottom:0;width:380px;max-width:100vw;background:var(--surf2);border-left:1px solid var(--line);
+  box-shadow:var(--shadow);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column;touch-action:pan-y}
+body.panel #panel{transform:none}
+body.touch #panel{top:auto;left:0;width:auto;height:82vh;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;
+  transform:translateY(105%);padding-bottom:env(safe-area-inset-bottom)}
+body.touch.panel #panel{transform:none}
+.ph{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.ph h2{margin:0;font-size:15px;font-weight:600;flex:1}
+.grab{display:none;width:40px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 0}
+body.touch .grab{display:block}
+.pb{flex:1;overflow-y:auto;padding:4px 14px 18px;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.sec{padding:12px 0;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:0}
+.sec h3{margin:0 0 10px;font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.07em}
+.fld{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.fld:last-child{margin-bottom:0}
+.fld>label,.fld>.l{font-size:12px;color:var(--mut)}
+.frow{display:flex;gap:8px}
+.frow>*{flex:1;min-width:0}
+select.sel{height:36px;border-radius:8px;border:1px solid var(--line);background:var(--raise);padding:0 10px;width:100%;cursor:pointer}
+select.sel:disabled{opacity:.55;cursor:default}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:2px;gap:2px}
+.seg button{flex:1;height:30px;border:0;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer;font-size:12px;white-space:nowrap;padding:0 6px}
+.seg button.on{background:var(--raise2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line2)}
+.btn{height:36px;border-radius:8px;border:1px solid var(--line);background:var(--raise);cursor:pointer;padding:0 12px;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;touch-action:manipulation}
+.btn:hover{border-color:var(--line2)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:var(--accfg);font-weight:600}
+.btn.warn{border-color:#7a5a1d;color:#ffd27a}
+.btn:disabled{opacity:.5;cursor:default}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px}
+.kv dt{color:var(--mut);display:flex;align-items:center;gap:6px}
+.kv dd{margin:0;font-size:12px;font-variant-numeric:tabular-nums;text-align:right;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:10px}
+.card .t{display:flex;align-items:center;gap:8px;font-weight:600}
+.card .s{color:var(--mut);font-size:12px}
+.bar{height:6px;border-radius:3px;background:var(--raise2);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc);width:0}
+.fld.tog{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;font-size:12px;color:var(--mut)}
+.tog input{appearance:none;width:36px;height:20px;border-radius:10px;background:var(--raise2);position:relative;cursor:pointer;flex:none;margin:0;border:1px solid var(--line2)}
+.tog input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--mut);transition:transform .15s}
+.tog input:checked{background:var(--acc);border-color:var(--acc)}
+.tog input:checked::after{transform:translateX(16px);background:var(--accfg)}
+.quick{display:none;grid-template-columns:repeat(5,1fr);gap:6px}
+body.touch .quick{display:grid}
+.quick .btn{flex-direction:column;height:58px;gap:4px;font-size:11px;padding:0 2px}
+/* tab */
+.tabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;flex:none}
+.tabs button{flex:1;height:40px;border:0;background:transparent;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;
+  font-size:13px;white-space:nowrap;padding:0 8px}
+.tabs button.on{color:var(--fg);border-bottom-color:var(--acc)}
+.pane{display:none}.pane.on{display:block}
+/* đèn phím */
+.led{font:600 9px var(--mono);letter-spacing:.04em;padding:2px 4px;border-radius:4px;border:1px solid var(--line);color:var(--dim)}
+.led.on{color:var(--accfg);background:var(--warn);border-color:var(--warn)}
+.led[hidden]{display:none}
+/* ô nhập */
+.inp{height:36px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:0 10px;font:inherit;width:100%;min-width:0;
+  -webkit-user-select:text;user-select:text}
+.inp:focus{outline:2px solid var(--acc);outline-offset:-1px}
+input[type=range]{width:100%;accent-color:var(--acc)}
+/* danh sách (ISO, macro) */
+.list{display:flex;flex-direction:column;gap:6px}
+.li{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surf2)}
+.li.cur{border-color:var(--acc);box-shadow:inset 3px 0 0 var(--acc)}
+.li .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.li .nm b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .nm span{font-size:11px;color:var(--mut)}
+.sbtn{height:30px;min-width:30px;padding:0 9px;border-radius:7px;border:1px solid var(--line);background:var(--raise);cursor:pointer;font-size:12px;
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;flex:none}
+.sbtn:hover{border-color:var(--line2)}
+.sbtn.pri{background:var(--acc);border-color:var(--acc);color:var(--accfg);font-weight:600}
+.sbtn.del:hover{border-color:var(--bad);color:var(--bad)}
+.sbtn svg{width:15px;height:15px}
+.lunn{margin-top:4px}.lunn:empty{display:none}
+.gadv{margin-top:10px;border-top:1px solid var(--line);padding-top:6px}.gadv summary{cursor:pointer;color:var(--mut);font-size:12px;user-select:none}
+.gadv[open] summary{color:var(--fg)}
+.uval{margin-left:auto;font:600 15px var(--mono);color:var(--acc)}
+.pool{position:relative;height:34px;margin-top:10px;border-radius:9px;background:repeating-linear-gradient(135deg,var(--raise),var(--raise) 6px,var(--surf2) 6px,var(--surf2) 12px);
+  border:1px solid var(--line);overflow:hidden}
+.pseg{position:absolute;top:0;bottom:0;left:0;width:0}
+.pdata{background:#7c8796}.pusb{background:var(--acc);opacity:.85}.pfree{background:var(--raise);border:1px solid var(--line2)}
+#uRange{position:absolute;top:0;height:100%;margin:0;padding:0;-webkit-appearance:none;appearance:none;background:transparent;cursor:ew-resize;touch-action:none}
+#uRange::-webkit-slider-runnable-track{height:100%;background:transparent}
+#uRange::-moz-range-track{height:100%;background:transparent}
+#uRange::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:34px;border-radius:5px;background:#fff;border:2px solid var(--acc);box-shadow:0 0 0 3px rgba(0,0,0,.25)}
+#uRange::-moz-range-thumb{width:12px;height:30px;border-radius:5px;background:#fff;border:2px solid var(--acc)}
+.plegend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12px;color:var(--mut)}
+.plegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.plegend b{color:var(--fg);font-weight:600}
+.empty{color:var(--dim);font-size:12px;text-align:center;padding:10px}
+.prog{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mut)}
+.prog .bar{height:8px}
+.svcs{display:flex;flex-wrap:wrap;gap:6px}
+.svcs span{display:inline-flex;align-items:center;gap:5px;font:11px var(--mono);padding:3px 7px;border:1px solid var(--line);border-radius:6px;color:var(--mut)}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acts .btn{font-size:12px}
+.tok{margin-top:10px;font:600 15px var(--mono);text-align:center;padding:10px;border-radius:8px;background:var(--bg);border:1px dashed var(--line2);
+  -webkit-user-select:all;user-select:all;word-break:break-all}
+a.btn{text-decoration:none;color:inherit}
+.acts3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+textarea.code.clipbox{min-height:110px;max-height:260px;resize:vertical}
+.tdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc);margin-left:5px;vertical-align:middle}
+.li .os{font:600 10px var(--mono);text-transform:uppercase;padding:2px 5px;border:1px solid var(--line);border-radius:5px;color:var(--mut)}
+.li.hc{cursor:pointer}.li.hc:hover{border-color:var(--acc)}
+.li .nm span.pv{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.err{color:var(--bad);font-size:12px}
+textarea.code{width:100%;min-height:170px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;
+  font:13px/1.5 var(--mono);resize:vertical;-webkit-user-select:text;user-select:text}
+textarea.code:focus{outline:2px solid var(--acc);outline-offset:-1px}
+pre.help{margin:0;font:11px/1.6 var(--mono);color:var(--mut);white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+body.touch .only-desk,body:not(.touch) .only-touch{display:none!important}
+.hint{color:var(--dim);font-size:11px;line-height:1.5}
+kbd{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:0 4px;color:var(--mut)}
+
+/* ---------- thông báo ---------- */
+#msg{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 18px;border-radius:12px;background:var(--surf);
+  border:1px solid var(--line);color:var(--fg);font-size:14px;pointer-events:none;text-align:center;max-width:90vw;z-index:4;
+  display:flex;align-items:center;gap:10px;box-shadow:var(--shadow)}
 #msg:empty{display:none}
-#tip{position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:7px 12px;border-radius:8px;
-background:var(--panel);border:1px solid var(--line);color:var(--fg);transition:opacity .3s;opacity:0;pointer-events:none;z-index:12}
+#msg::before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--acc);animation:spin .9s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+#capFix{position:fixed;left:50%;top:calc(50% + 44px);transform:translateX(-50%);z-index:4;width:auto;padding:0 16px}
+@media (prefers-reduced-motion:reduce){#msg::before{animation:none}*{transition:none!important}}
+#tip{position:fixed;top:58px;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:9px;background:var(--surf);
+  border:1px solid var(--line);color:var(--fg);transition:opacity .25s;opacity:0;pointer-events:none;z-index:40;box-shadow:var(--shadow);max-width:90vw;text-align:center}
 #tip.show{opacity:1}
-/* ---- thanh mobile ---- */
-#mob{position:fixed;left:0;right:0;bottom:0;z-index:8;display:none;flex-direction:column;background:var(--panel);
-border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(8px)}
-#mob{display:flex!important}
-body:not(.touch) #main{display:none}
-#xk{display:flex!important}
-#xk .k.cmb{color:var(--acc)}
+body.touch #tip{top:max(14px,env(safe-area-inset-top))}
+
+/* ---------- chip trạng thái (mobile) ---------- */
+#chip{position:fixed;top:max(8px,env(safe-area-inset-top));left:8px;z-index:8;display:none;align-items:center;gap:6px;padding:4px 9px;
+  border-radius:999px;background:rgba(17,21,27,.78);border:1px solid var(--line);font:11px var(--mono);color:var(--mut)}
+body.touch #chip{display:flex}
+#chip b{color:var(--fg);font-weight:500}
+
+/* ---------- thanh dưới: phím phụ + nút chính ---------- */
+#mob{position:fixed;left:0;right:0;bottom:0;z-index:8;display:none;flex-direction:column;background:var(--surf);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+body.touch #mob,body.vk #mob{display:flex}
 .row{display:flex;gap:6px;padding:6px 8px;align-items:center}
-#xk{display:none;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;border-bottom:1px solid var(--line)}
+#xk{overflow-x:auto;scrollbar-width:none;touch-action:pan-x}
 #xk::-webkit-scrollbar{display:none}
-body.kbd #xk{display:flex}
-.k{flex:none;min-width:44px;height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--key);
-color:var(--fg);font:600 14px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
-.k:active,.k.dn{background:var(--keyd)}
-.k.on{background:var(--acc);color:#001018;border-color:var(--acc)}
-.k.lock{box-shadow:inset 0 -3px 0 #001018}
-#main .k{flex:1 1 0;min-width:0;height:46px;font-size:13px;padding:0 4px}
-#main .k svg{width:22px;height:22px}
+body.touch:not(.kbd) #xk{display:none}
+body.touch.kbd #xk{border-bottom:1px solid var(--line)}
+body:not(.touch) #main{display:none}
+.k{flex:none;min-width:44px;height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--raise);
+  color:var(--fg);font:600 13px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;touch-action:manipulation;cursor:pointer}
+body:not(.touch) .k{height:32px;min-width:38px;font-size:12px}
+.k:active,.k.dn{background:var(--raise2)}
+.k.on{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.k.lock{box-shadow:inset 0 -3px 0 var(--accfg)}
+.k.cmb{color:var(--acc)}
+.k.gap{margin-left:8px}
+#main .k{flex:1 1 0;min-width:0;height:48px;font-size:12px;padding:0 2px;flex-direction:column;gap:2px;font-weight:500}
+#main .k svg{width:20px;height:20px}
+#mZoom{font-variant-numeric:tabular-nums}
 #ki{position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0;border:0;padding:0;font-size:16px;z-index:-1;color:transparent;background:transparent;caret-color:transparent}
-dialog{background:#12161c;color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:16px;width:min(560px,92vw)}
-dialog::backdrop{background:#0008}
-dialog textarea{width:100%;height:160px;background:#07090c;color:var(--fg);border:1px solid var(--line);
-border-radius:8px;padding:8px;font:14px ui-monospace,monospace;resize:vertical;-webkit-user-select:text;user-select:text}
-dialog .drow{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;align-items:center}
-dialog .hint{color:var(--mut);font-size:12px;margin-right:auto}
-@media (max-width:700px){.wide{display:none}}
+
+/* ---------- hộp thoại dán ---------- */
+dialog{background:var(--surf2);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:16px;width:min(560px,92vw);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog h2{margin:0 0 4px;font-size:15px}
+dialog p{margin:0 0 10px;color:var(--mut);font-size:12px}
+dialog textarea{width:100%;height:170px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;
+  font:13px var(--mono);resize:vertical;-webkit-user-select:text;user-select:text}
+dialog textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
+.drow{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;align-items:center}
+.drow .hint{margin-right:auto}
+#pWarn{color:var(--warn);font-size:12px;min-height:16px;margin-top:6px}
 </style></head><body>
-<div id="stage"><canvas id="cv" tabindex="0"></canvas></div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+  <symbol id="i-cmd" viewBox="0 0 24 24"><path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h4"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/></symbol>
+  <symbol id="i-usb" viewBox="0 0 24 24"><path d="M22 12H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11zM6 16h.01M10 16h.01"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76V6h6v4.76a2 2 0 0 0 1.11 1.79l1.78.9A2 2 0 0 1 19 15.24V16H5v-.76a2 2 0 0 1 1.11-1.79l1.78-.9A2 2 0 0 0 9 10.76zM8 2h8"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6"/></symbol>
+  <symbol id="i-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-eject" viewBox="0 0 24 24"><path d="M5 17h14M12 5l7 8H5z"/></symbol>
+  <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></symbol>
+</svg>
+
+<div id="stage"><canvas id="cv" tabindex="0" aria-label="Màn hình máy đích"></canvas></div>
 <svg id="cur" viewBox="0 0 18 18"><path d="M2 2 L2 15 L5.5 11.5 L8 17 L10.5 16 L8 10.5 L13 10.5 Z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg>
+
+<!-- ========== thanh trên (desktop) ========== -->
 <div id="hot"></div>
-<div id="top">
-  <span class="brand">KVM</span>
-  <span class="st" title="Kết nối tới ZTE"><span id="dNet" class="dot"></span>Mạng</span>
-  <span class="st" title="Máy đích đã nhận USB bàn phím/chuột"><span id="dUsb" class="dot"></span>USB</span>
-  <span class="st" title="Khung hình/giây"><span class="num" id="sFps">0</span>fps</span>
-  <span class="st" title="Độ trễ mạng khứ hồi"><span class="num" id="sRtt">–</span>ms</span>
-  <span class="st" title="Băng thông video"><span class="num" id="sMbps">0</span>Mb/s</span>
-  <span class="sep"></span>
-  <select class="b" id="qual" title="Độ phân giải / fps của capture (áp dụng cho mọi người xem)"></select>
-  <select class="b" id="win" title="Ưu tiên độ trễ hay độ mượt">
-    <option value="1">Độ trễ thấp nhất</option>
-    <option value="2" selected>Cân bằng</option>
-    <option value="3">Mượt (mạng chậm)</option>
-  </select>
-  <select class="b" id="mmode" title="Kiểu chuột gửi sang máy đích">
-    <option value="abs">Chuột tuyệt đối</option>
-    <option value="rel">Chuột tương đối (game/BIOS)</option>
-  </select>
-  <select class="b" id="tmode" title="Cách điều khiển bằng màn cảm ứng">
-    <option value="pad">Cảm ứng: Touchpad</option>
-    <option value="direct">Cảm ứng: Chạm trực tiếp</option>
-  </select>
-  <span class="sep"></span>
-  <button class="b" data-combo="ctrl+alt+del">Ctrl+Alt+Del</button>
-  <button class="b" data-combo="win">Win</button>
-  <button class="b" data-combo="alt+tab">Alt+Tab</button>
-  <button class="b" data-combo="alt+f4">Alt+F4</button>
-  <button class="b" data-combo="printscreen">PrtSc</button>
-  <button class="b" id="bPaste" title="Gõ một đoạn text vào máy đích">Dán text</button>
-  <button class="b" id="bRel" title="Nhả mọi phím/nút đang giữ">Nhả phím</button>
-  <span class="sep"></span>
-  <button class="b" id="bSnap" title="Lưu ảnh màn hình">Ảnh</button>
-  <button class="b" id="bFull" title="Toàn màn hình">Toàn màn hình</button>
-  <button class="b" id="bPin" title="Ghim thanh công cụ">Ghim</button>
-</div>
+<header id="top">
+  <button class="stat" id="bStat" title="Trạng thái – bấm để mở bảng điều khiển">
+    <span class="dots"><span id="dNet" class="dot" title="Kết nối tới W105D"></span><span id="dUsb" class="dot" title="USB máy đích"></span></span>
+    <span><b id="sFps">0</b><span id="uFps"> fps</span></span><span><b id="sRtt">–</b> ms</span><span hidden><b id="sMbps">0</b></span>
+    <span class="led" id="lCaps" title="Caps Lock trên máy đích" hidden>CAPS</span><span class="led" id="lNum" title="Num Lock trên máy đích" hidden>NUM</span>
+  </button>
+  <span class="vsep"></span>
+  <button class="ib" id="bKeys" title="Phím tắt (Windows / macOS / Linux)"><svg class="i"><use href="#i-cmd"/></svg><span class="lbl">Phím tắt</span></button>
+  <button class="ib" id="bPaste" title="Dán / gõ một đoạn text vào máy đích"><svg class="i"><use href="#i-paste"/></svg><span class="lbl">Dán</span></button>
+  <button class="ib icon" id="bAudio" title="Nghe âm thanh máy đích (HDMI)"><svg class="i"><use href="#i-mute"/></svg></button>
+  <span class="vsep"></span>
+  <button class="ib icon" id="bSnap" title="Lưu ảnh màn hình máy đích"><svg class="i"><use href="#i-cam"/></svg></button>
+  <button class="ib icon" id="bFull" title="Toàn màn hình (bắt cả phím Win, Alt+Tab…)"><svg class="i"><use href="#i-full"/></svg></button>
+  <button class="ib icon" id="bSet" title="Bảng điều khiển: lưu trữ, macro, clipboard, cài đặt"><svg class="i"><use href="#i-set"/></svg></button>
+  <button class="ib icon" id="bPin" title="Ghim thanh công cụ"><svg class="i"><use href="#i-pin"/></svg></button>
+</header>
+<div id="handle" title="Hiện thanh công cụ"><span class="dots"><span id="hNet" class="dot"></span><span id="hUsb" class="dot"></span></span>KVM</div>
+
+<aside id="kpanel" aria-label="Phím tắt">
+  <div class="grab"></div>
+  <div class="ph"><h2>Phím tắt</h2><button class="ib icon" id="kClose" title="Đóng (Esc)"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <div class="khd">
+    <div class="seg" id="kOs"><button data-v="win">Windows</button><button data-v="mac">macOS</button><button data-v="linux">Linux</button></div>
+    <input class="inp" id="kq" type="search" placeholder="Tìm: khoá máy, copy, tab, bios…" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="kbios">
+    <div class="kgh">BIOS / Boot <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:400">dùng được cả khi máy đích đang khởi động</span></div>
+    <div class="brow" id="bBoot"></div>
+    <div class="brow" id="bNav"></div>
+    <div class="brow" id="bCmd"></div>
+  </div>
+  <div class="kb" id="kList"></div>
+  <div class="kb kmacs"><div class="kgh">Macro <button class="lnk" id="kMac">Quản lý</button></div><div id="kmac"></div></div>
+  <div class="kft">
+    <label class="only-desk kpin"><input type="checkbox" id="kPin"> Giữ ngăn mở</label>
+    <button class="btn" id="kRel"><svg class="i"><use href="#i-hand"/></svg>Nhả mọi phím</button>
+  </div>
+</aside>
+
+<!-- ========== chip trạng thái (mobile) ========== -->
+<div id="chip"><span class="dots"><span id="cNet" class="dot"></span><span id="cUsb" class="dot"></span></span><span><b id="cFps">0</b><span id="ucFps"> fps</span></span><span><b id="cRtt">–</b> ms</span><span class="led" id="cCaps" hidden>CAPS</span></div>
+
+<!-- ========== bảng điều khiển ========== -->
+<div id="scrim"></div>
+<aside id="panel" aria-label="Bảng điều khiển">
+  <div class="grab"></div>
+  <div class="ph"><h2>Bảng điều khiển</h2><button class="ib icon" id="pClose" title="Đóng (Esc)"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="gen">Chung</button><button data-tab="sto">Lưu trữ</button><button data-tab="mac">Macro</button><button data-tab="clip">Clipboard<i class="tdot" id="cDot" hidden></i></button><button data-tab="box">W105D</button>
+  </nav>
+  <div class="pb">
+   <!-- ===== Chung ===== -->
+   <div class="pane" data-pane="gen">
+    <div class="sec quick">
+      <button class="btn" id="qPaste"><svg class="i"><use href="#i-paste"/></svg>Dán text</button>
+      <button class="btn" id="qRel"><svg class="i"><use href="#i-hand"/></svg>Nhả phím</button>
+      <button class="btn" id="qAudio"><svg class="i"><use href="#i-mute"/></svg>Âm thanh</button>
+      <button class="btn" id="qSnap"><svg class="i"><use href="#i-cam"/></svg>Chụp</button>
+      <button class="btn" id="qFull"><svg class="i"><use href="#i-full"/></svg>Toàn MH</button>
+    </div>
+    <div class="sec">
+      <h3>Trạng thái</h3>
+      <dl class="kv">
+        <dt><span class="dot" id="pNet"></span>Kết nối</dt><dd id="vNet">–</dd>
+        <dt><span class="dot" id="pUsb"></span>USB máy đích</dt><dd id="vUdc">–</dd>
+        <dt>Đèn bàn phím</dt><dd id="vLeds">–</dd>
+        <dt>Capture</dt><dd id="vCap">–</dd>
+        <dt>Thực nhận</dt><dd id="vRx">–</dd>
+        <dt>Độ trễ mạng</dt><dd id="vRtt">–</dd>
+      </dl>
+    </div>
+    <div class="sec">
+      <h3>Hình ảnh</h3>
+      <div class="fld"><span class="l">Độ phân giải capture <span class="hint">(áp dụng cho mọi người xem)</span></span>
+        <div class="frow"><select class="sel" id="qRes" aria-label="Độ phân giải"></select><select class="sel" id="qFps" aria-label="Khung hình/giây" style="flex:0 0 96px"></select></div>
+      </div>
+      <div class="fld"><span class="l">Nén video <span class="hint" id="vcInfo"></span></span>
+        <div class="seg" id="vcodec"><button data-v="mjpeg">MJPEG</button><button data-v="h264">H.264 (phần cứng)</button></div>
+      </div>
+      <div class="fld" id="vbrRow" hidden><span class="l">Bitrate H.264 <span class="hint">(áp dụng cho mọi người xem H.264)</span></span>
+        <div class="seg" id="vbr"><button data-v="2000">2 Mb/s</button><button data-v="4000">4</button><button data-v="6000">6</button><button data-v="10000">10</button></div>
+      </div>
+      <div class="fld"><span class="l">Ưu tiên</span>
+        <div class="seg" id="win"><button data-v="1">Độ trễ thấp</button><button data-v="2">Cân bằng</button><button data-v="3">Mượt</button></div>
+      </div>
+    </div>
+    <div class="sec">
+      <h3>Âm thanh</h3>
+      <label class="fld tog"><span>Nghe âm thanh HDMI của máy đích <span class="hint">(~0,4 Mb/s)</span></span><input type="checkbox" id="tAudio"></label>
+      <div class="fld"><span class="l">Âm lượng</span><input type="range" id="aVol" min="0" max="200" step="5" aria-label="Âm lượng"></div>
+      <div class="hint" id="aInfo">Máy đích cần chọn loa HDMI (card MS2109) làm thiết bị phát.</div>
+    </div>
+    <div class="sec">
+      <h3>Chuột &amp; cảm ứng</h3>
+      <div class="fld"><span class="l">Kiểu chuột gửi sang máy đích</span>
+        <div class="seg" id="mmode"><button data-v="abs">Tuyệt đối</button><button data-v="rel">Tương đối (game/BIOS)</button></div>
+      </div>
+      <div class="fld"><span class="l">Con trỏ tuyệt đối gửi dạng <span class="hint">(theo máy đích, áp dụng cho mọi người xem)</span></span>
+        <div class="seg" id="amode"><button data-v="mouse">Chuột (Windows/Linux/macOS)</button><button data-v="pen">Bút cảm ứng (Android)</button></div>
+      </div>
+      <div class="fld"><span class="l">Màn cảm ứng</span>
+        <div class="seg" id="tmode"><button data-v="pad">Touchpad</button><button data-v="direct">Chạm trực tiếp</button></div>
+      </div>
+      <label class="fld tog only-desk"><span>Hiện hàng phím phụ ở đáy màn hình</span><input type="checkbox" id="tVk"></label>
+    </div>
+    <div class="sec only-desk">
+      <h3>Mẹo</h3>
+      <div class="hint">
+        Đưa chuột lên mép trên để hiện thanh công cụ. <kbd>Toàn màn hình</kbd> bắt được cả <kbd>Win</kbd>, <kbd>Alt+Tab</kbd>, <kbd>Ctrl+W</kbd> (giữ <kbd>Esc</kbd> để thoát).
+        Chế độ chuột tương đối: click vào hình để khoá chuột, <kbd>Esc</kbd> để thả.
+      </div>
+    </div>
+   </div>
+
+   <!-- ===== Lưu trữ ===== -->
+   <div class="pane" data-pane="sto">
+    <div class="sec" hidden><!-- W105D: khong co o USB ao (eMMC 8GB) -->
+      <h3>Ổ USB ảo</h3>
+      <div class="card">
+        <div class="t"><span class="dot off" id="dDisk2"></span><span id="uTitle">Ổ USB W105D</span></div>
+        <div class="s" id="uDesc">Đang đọc trạng thái…</div>
+        <div class="bar" id="uBarW" hidden><i id="uBar"></i></div>
+        <div class="hint lunn" id="n0"></div>
+        <button class="btn" id="bUsbDisk" disabled>…</button>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <div class="t">Dung lượng ổ <b class="uval" id="uVal">–</b></div>
+        <div class="pool" id="uPoolBar">
+          <i class="pseg pdata" id="segData"></i><i class="pseg pusb" id="segUsb"></i>
+          <input type="range" id="uRange" min="1" max="16" step="1" aria-label="Dung lượng ổ USB (GB)">
+        </div>
+        <div class="plegend"><span><i class="pdata"></i>Dữ liệu <b id="lData">–</b></span><span><i class="pusb"></i>Ổ USB <b id="lUsb">–</b></span><span><i class="pfree"></i>Trống <b id="lFree">–</b></span></div>
+        <div class="frow" style="margin-top:8px;gap:6px"><button class="mchip" data-g="8">8 GB</button><button class="mchip" data-g="16">16 GB</button><button class="mchip" data-g="32">32 GB</button></div>
+        <label class="fld tog" style="margin-top:6px"><span>Cấp phát trước <span class="hint">(giữ chỗ thật trong kho; nên bật khi ghost/sao lưu lớn)</span></span><input type="checkbox" id="uPre"></label>
+        <button class="btn warn" id="bUsbSize" disabled>Đổi dung lượng (xoá dữ liệu trên ổ)</button>
+        <div class="hint" id="uPool" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="sec">
+      <h3>USB cắm vào W105D</h3>
+      <div class="card">
+        <div class="t"><span class="dot off" id="dExt"></span><span id="eTitle">USB ngoài</span></div>
+        <div class="s" id="eDesc">Đang đọc trạng thái…</div>
+        <div class="hint lunn" id="n1"></div>
+        <button class="btn" id="bExt" disabled>…</button>
+      </div>
+      <div class="hint" style="margin-top:8px">USB cắm vào W105D (cổng USB-A thường, không phải cổng OTG) được chuyển thẳng sang máy đích. Gỡ ra để máy đích không boot nhầm hoặc ghi vào nó, hoặc để dùng ổ trên W105D; lựa chọn được giữ sau khi khởi động lại.</div>
+    </div>
+    <div class="sec" hidden><!-- W105D: khong co ISO ao -->
+      <h3>Ổ CD / ISO ảo</h3>
+      <div class="card">
+        <div class="t"><span class="dot off" id="dIso"></span><span id="iTitle">Trống</span></div>
+        <div class="s" id="iDesc">Chọn một ảnh bên dưới để cắm sang máy đích.</div>
+        <div class="hint lunn" id="n2"></div>
+        <button class="btn warn" id="bIsoEject" hidden><svg class="i"><use href="#i-eject"/></svg>Gỡ ảnh</button>
+      </div>
+      <div class="err" id="iErr" style="margin-top:8px"></div>
+      <div class="list" id="isoList" style="margin-top:10px"></div>
+      <div class="hint" style="margin-top:8px"><b>CD</b>: bộ cài Windows và hầu hết ISO. <b>USB</b>: ISO hybrid (Ubuntu, Debian…) hoặc ảnh <code>.img</code>. Luôn chỉ đọc.</div>
+    </div>
+    <div class="sec" hidden>
+      <h3>Thêm ảnh vào <span style="text-transform:none" id="iDir">/data/iso</span></h3>
+      <div class="fld"><button class="btn" id="bIsoUp"><svg class="i"><use href="#i-up"/></svg>Tải lên từ máy này…</button>
+        <input type="file" id="isoFile" accept=".iso,.img" hidden></div>
+      <div class="prog" id="upProg" hidden><span id="upTxt"></span><div class="bar"><i id="upBar"></i></div><button class="sbtn" id="upCancel">Huỷ tải lên</button></div>
+      <div class="fld"><span class="l">Hoặc để W105D tự tải từ URL</span>
+        <div class="frow"><input class="inp" id="isoUrl" placeholder="https://…/ubuntu.iso" inputmode="url" autocomplete="off" spellcheck="false">
+          <button class="btn" id="bIsoFetch" style="flex:none">Tải</button></div></div>
+      <div class="prog" id="dlProg" hidden><span id="dlTxt"></span><div class="bar"><i id="dlBar"></i></div><button class="sbtn" id="dlCancel">Huỷ</button></div>
+      <div class="hint" id="iFree"></div>
+    </div>
+   </div>
+
+   <!-- ===== Macro ===== -->
+   <div class="pane" data-pane="mac">
+    <div class="sec">
+      <h3>Macro</h3>
+      <div class="list" id="macList"></div>
+      <div class="frow" style="margin-top:10px"><button class="btn" id="bMacNew">+ Macro mới</button><button class="btn" id="bMacStop" hidden>Dừng macro</button></div>
+      <div class="hint" style="margin-top:10px">Macro lưu trên W105D, dùng chung cho mọi thiết bị. <b>Đừng lưu mật khẩu</b> (lưu dạng chữ thường).</div>
+    </div>
+   </div>
+
+   <!-- ===== Clipboard ===== -->
+   <div class="pane" data-pane="clip">
+    <div class="sec">
+      <h3>Agent trên máy đích</h3>
+      <div class="list" id="agList"></div>
+      <div class="fld" style="margin-top:12px"><span class="l">Cài agent <span class="hint">(W105D tự gõ lệnh cài bằng bàn phím ảo)</span></span>
+        <div class="acts3"><button class="btn" id="iWin">Windows</button><button class="btn" id="iLin">Linux</button><button class="btn" id="iAnd">Android</button></div></div>
+      <div class="hint" id="agHint">Agent nhỏ chạy ẩn trên máy đích, đồng bộ clipboard văn bản 2 chiều với W105D qua mạng LAN/Tailscale. Không cần quyền admin, tự chạy lại khi đăng nhập.</div>
+      <div class="err" id="cErr" style="margin-top:8px"></div>
+    </div>
+    <div class="sec">
+      <h3>Máy đích vừa copy <span style="text-transform:none" class="hint" id="cMeta"></span></h3>
+      <textarea class="code clipbox" id="cRx" readonly placeholder="Chưa có. Copy gì đó trên máy đích (Ctrl+C), nội dung sẽ hiện ở đây."></textarea>
+      <div class="frow" style="margin-top:8px"><button class="btn pri" id="cCopy" disabled>Copy về máy này</button><button class="btn" id="cType" disabled title="Gõ lại nội dung này vào máy đích">Đưa sang ô gửi</button></div>
+      <label class="fld tog" id="cAutoW" hidden style="margin-top:8px"><span>Tự copy về máy này khi máy đích copy</span><input type="checkbox" id="cAuto"></label>
+      <div class="list" id="cHist" style="margin-top:10px"></div>
+    </div>
+    <div class="sec">
+      <h3>Gửi vào clipboard máy đích</h3>
+      <textarea class="code clipbox" id="cTx" placeholder="Nhập hoặc dán nội dung (có dấu tiếng Việt, xuống dòng… đều được)"></textarea>
+      <div class="frow" style="margin-top:8px"><button class="btn pri" id="cSet">Đưa vào clipboard</button><button class="btn" id="cSetV" title="Đưa vào clipboard rồi bấm Ctrl+V trên máy đích">Đưa vào + Ctrl+V</button></div>
+      <div class="hint" id="cPushSt"></div>
+    </div>
+   </div>
+
+   <!-- ===== W105D ===== -->
+   <div class="pane" data-pane="box">
+    <div class="sec">
+      <h3>Sức khoẻ <span style="text-transform:none" id="hHost"></span></h3>
+      <dl class="kv">
+        <dt>Nhiệt độ SoC</dt><dd id="hTemp">–</dd>
+        <dt>Tải CPU (1/5/15 phút)</dt><dd id="hLoad">–</dd>
+        <dt>RAM trống</dt><dd id="hMem">–</dd>
+        <dt>Đã chạy</dt><dd id="hUp">–</dd>
+        <dt>Rootfs /</dt><dd id="hRoot">–</dd>
+        <dt hidden>/data</dt><dd id="hData" hidden>–</dd>
+        <dt>USB máy đích</dt><dd id="hUdc">–</dd>
+        <dt>Capture</dt><dd id="hCap">–</dd>
+        <dt>Người nghe âm thanh</dt><dd id="hAud">–</dd>
+      </dl>
+      <div class="svcs" id="hSvc" style="margin-top:12px"></div>
+    </div>
+    <div class="sec">
+      <h3>Terminal &amp; agent</h3>
+      <div class="acts">
+        <a class="btn" href="/terminal" target="_blank" title="Xem/điều khiển các phiên terminal root (agent tạo qua API)">Mở Terminal</a>
+        <a class="btn" href="/debug.md" target="_blank" title="Trang hướng dẫn đưa cho agent">Hướng dẫn agent</a>
+        <button class="btn" id="aRot" title="Tạo token mới; mọi thiết bị/agent khác phải đăng nhập lại">Đổi token</button>
+        <button class="btn" id="aOut">Đăng xuất</button>
+      </div>
+      <div class="hint" style="margin-top:8px">Đưa cho agent địa chỉ <code id="aUrl"></code> + token; agent đọc <code>/debug.md</code> để biết cách điều khiển máy đích và chạy lệnh root trên W105D. Token đổi mỗi lần W105D khởi động lại.</div>
+      <div class="tok" id="aTok" hidden></div>
+    </div>
+    <div class="sec" hidden><!-- W105D: khong co ban goc rootfs (sao luu: repo ZTErescue) -->
+      <h3>Bản gốc (khôi phục)</h3>
+      <dl class="kv">
+        <dt>Bản gốc</dt><dd id="gCur">–</dd>
+        <dt>Bản trước</dt><dd id="gPrev">–</dd>
+        <dt>Khởi động lỗi liên tiếp</dt><dd id="gFails">–</dd>
+        <dt>Phân vùng backup</dt><dd id="gFree">–</dd>
+        <dt>Chế độ đang chạy</dt><dd id="gMode">–</dd>
+      </dl>
+
+      <div class="hint" id="gReq" style="margin-top:6px" hidden></div>
+      <div class="frow" style="margin-top:10px;gap:8px"><input class="inp" id="gPw" type="password" placeholder="Mật khẩu lưu bản gốc" autocomplete="off" style="flex:1">
+        <button class="btn pri" id="gSave">Lưu làm bản gốc</button></div>
+      <div class="acts" style="margin-top:8px">
+        <button class="btn warn" id="gRestore">Khôi phục bản gốc</button>
+        <button class="btn" id="gCancel" hidden>Huỷ yêu cầu</button>
+      </div>
+      <details class="gadv" id="gAdv">
+        <summary>Nâng cao</summary>
+        <input class="inp" id="gPw2" type="password" placeholder="Mật khẩu (cần cho các mục dưới)" autocomplete="off" style="margin-top:8px;width:100%">
+        <label class="fld tog" style="margin-top:8px"><span>Khởi động lại là sạch <span class="hint">(mặc định tắt; rootfs chỉ đọc, thay đổi nằm trong RAM (tối đa 512MB) và mất khi khởi động lại; Tailscale, WiFi, cài đặt KVM, /data vẫn giữ. Có hiệu lực từ lần khởi động tới)</span></span><input type="checkbox" id="gFresh"></label>
+        <button class="btn" id="gMaint" hidden title="Khởi động lại 1 lần ở chế độ thường (ghi thẳng rootfs) để sửa ROM; sửa xong nhớ Lưu làm bản gốc">Khởi động bảo trì 1 lần</button>
+      </details>
+      <div class="hint" style="margin-top:8px">Bản gốc = ảnh toàn bộ Linux (mã KVM + mọi cài đặt) trong phân vùng <code>backup</code>. W105D tự khôi phục nếu 3 lần khởi động liền không lên được KVM hoặc rootfs hỏng. Lưu/khôi phục đều khởi động lại W105D (KVM mất 2–3 phút).</div>
+    </div>
+    <div class="sec">
+      <h3>Sửa nhanh</h3>
+      <div class="acts">
+        <button class="btn" id="aReplug" title="Ngắt USB với máy đích 1,5 giây rồi cắm lại">Cắm lại USB</button>
+        <button class="btn" id="aCap" title="Reset USB card capture HDMI khi mất hình (không ảnh hưởng máy đích)">Reset capture</button>
+        <button class="btn" id="aHid" title="Khởi động lại dịch vụ bàn phím/chuột">Khởi động lại hidfwd</button>
+        <button class="btn" id="aRel" title="Nhả mọi phím/nút đang kẹt">Nhả mọi phím</button>
+      </div>
+      <div class="hint" style="margin-top:8px">“Cắm lại USB” tạo lại gadget (bàn phím/chuột/bút + ổ USB) khoảng 2 giây; hãy chắc máy đích không đang ghi vào ổ USB.</div>
+    </div>
+   </div>
+  </div>
+</aside>
+
+<!-- ========== thanh dưới ========== -->
 <div id="mob">
   <div id="xk" class="row"></div>
   <div id="main" class="row">
-    <button class="k" id="mKbd" title="Bàn phím"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
+    <button class="k" id="mKbd" title="Bàn phím"><svg class="i"><use href="#i-kbd"/></svg>Phím</button>
     <button class="k" id="mL">Trái</button>
     <button class="k" id="mR">Phải</button>
     <button class="k" id="mDrag" title="Giữ nút trái (kéo thả)">Giữ</button>
     <button class="k" id="mEsc">Esc</button>
-    <button class="k" id="mWin">Win</button>
+    <button class="k" id="mKeys" title="Phím tắt"><svg class="i"><use href="#i-cmd"/></svg>Tắt</button>
     <button class="k" id="mZoom" title="Chụm 2 ngón để phóng to – chạm để về 1×">1×</button>
-    <button class="k" id="mMenu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button class="k" id="mMenu" title="Bảng điều khiển"><svg class="i"><use href="#i-menu"/></svg>Menu</button>
   </div>
 </div>
 <input id="ki" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" aria-label="bàn phím">
 <div id="msg">Đang kết nối…</div>
-<div id="tip"></div>
+<button class="btn pri" id="capFix" hidden title="Reset USB card capture HDMI (không ảnh hưởng máy đích)">Reset capture</button>
+<div id="tip" role="status"></div>
+
 <dialog id="dlg">
-  <div style="font-weight:600;margin-bottom:8px">Gõ text vào máy đích</div>
-  <textarea id="ptxt" placeholder="Chỉ hỗ trợ ký tự ASCII (bàn phím US)…"></textarea>
+  <h2>Gõ text vào máy đích</h2>
+  <p>Gõ như bàn phím US, khoảng 20 ký tự/giây (tự xử lý khi máy đích bật Caps Lock). Chỉ gửi được ký tự ASCII; ký tự khác sẽ bị bỏ qua.</p>
+  <textarea id="ptxt" placeholder="Nhập hoặc dán nội dung…"></textarea>
+  <div id="pWarn"></div>
   <div class="drow"><span class="hint">Ctrl+Enter để gửi</span>
-    <button class="b" id="pCancel">Huỷ</button><button class="b on" id="pSend">Gửi</button></div>
+    <button class="btn" id="pCancel">Huỷ</button><button class="btn" id="pClip" hidden title="Agent clipboard đang chạy: dán tức thì, giữ nguyên tiếng Việt">Dán qua clipboard</button><button class="btn pri" id="pSend">Gõ phím</button></div>
+</dialog>
+<dialog id="mdlg">
+  <h2 id="mTitle">Macro</h2>
+  <div class="fld" style="margin-top:10px"><label for="mName">Tên</label><input class="inp" id="mName" maxlength="48" placeholder="VD: Mở PowerShell admin"></div>
+  <div class="fld"><label for="mScript">Các bước (mỗi dòng một lệnh)</label><textarea class="code" id="mScript" spellcheck="false"></textarea></div>
+  <pre class="help">text &lt;chữ&gt;      gõ chữ (ASCII)
+key enter tab  bấm lần lượt từng phím
+ctrl+alt+t     tổ hợp phím (hoặc: combo ctrl+alt+t)
+wait 500       chờ 500 ms
+click [left|right|middle]   click tại vị trí chuột
+# ...          ghi chú</pre>
+  <div class="err" id="mErr"></div>
+  <div class="drow"><button class="btn del" id="mDel" style="margin-right:auto">Xoá</button>
+    <button class="btn" id="mCancel">Huỷ</button><button class="btn" id="mTry">Chạy thử</button><button class="btn pri" id="mSave">Lưu</button></div>
 </dialog>
 <script>
 "use strict";
@@ -152,18 +639,29 @@ Numpad5:93,Numpad6:94,Numpad7:95,Numpad8:96,Numpad9:97,Numpad0:98,NumpadDecimal:
 IntlBackslash:100,ContextMenu:101,ControlLeft:224,ShiftLeft:225,AltLeft:226,MetaLeft:227,
 ControlRight:228,ShiftRight:229,AltRight:230,MetaRight:231,OSLeft:227,OSRight:231};
 
+/* ================= điều khiển phân đoạn ================= */
+function seg(id, val, fn){
+  const el = $(id);
+  const paint = v => { el.dataset.v = v; el.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v)) };
+  paint(val);
+  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { if (el.dataset.v !== b.dataset.v){ paint(b.dataset.v); fn(b.dataset.v) } }));
+  return paint;
+}
+
 /* ================= WebSocket + video ================= */
 let ws = null, online = false, fw = 0, fh = 0, lastFrame = 0, lastStats = null;
-let rxSeq = 0, drawnSeq = 0, nFrames = 0, nBytes = 0, rtt = null;
+let rxSeq = 0, drawnSeq = 0, nFrames = 0, nBytes = 0, rtt = null, rxFps = 0, rxMbps = 0;
+let winVal = store.get('win', '2');
 function send(s){ if(ws && ws.readyState === 1) ws.send(s) }
 function connect(){
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.binaryType = 'arraybuffer'; jSegs = null;
-  ws.onopen = () => { online = true; send('win ' + $('win').value); ping(); updDots() };
-  ws.onclose = () => { online = false; updDots(); msg('Mất kết nối – đang kết nối lại…'); setTimeout(connect, 800) };
+  ws.onopen = () => { online = true; send('win ' + winVal); if (vcWant === 'h264'){ send('kbps ' + store.get('vbr', '6000')); send('codec h264') } ping(); updDots() };
+  ws.onclose = () => { online = false; updDots(); msg('Mất kết nối – đang kết nối lại…'); authCheck(); setTimeout(connect, 800) };
   ws.onmessage = e => {
     if (typeof e.data === 'string') return onText(e.data);
     nBytes += e.data.byteLength;
+    if (new Uint8Array(e.data, 0, 1)[0] === 3){ h264In(e.data); return }
     const jpg = assemble(e.data);
     if (jpg) draw(new Blob([jpg], {type:'image/jpeg'}), ++rxSeq); else send('k');
   };
@@ -212,58 +710,242 @@ async function draw(blob, seq){
   }catch(err){ jSegs = null; send('f') }
   send('k');
 }
+/* ================= H.264 (xd-venc phần cứng trên W105D) ================= */
+// gói 0x03: [key u8][w u16][h u16] + Annex-B. WebCodecs (cần https/localhost) hoặc MSE + fMP4 (chạy cả http).
+let vcWant = store.get('vcodec', 'h264'), vcOn = false, vdec = null, vdecCodec = '', vts = 0, mse = null;
+const vcHas = {wc: typeof VideoDecoder === 'function', mse: typeof MediaSource === 'function' && MediaSource.isTypeSupported('video/mp4; codecs="avc1.4d4028"')};
+function nals(u){                                   // tách NAL Annex-B -> [{t, b(subarray không có start code)}]
+  const out = []; let i = 0, s = -1;
+  while (i + 3 <= u.length){
+    if (u[i] === 0 && u[i + 1] === 0 && (u[i + 2] === 1 || (u[i + 2] === 0 && u[i + 3] === 1))){
+      const sc = u[i + 2] === 1 ? 3 : 4;
+      if (s >= 0) out.push(u.subarray(s, i));
+      i += sc; s = i; continue;
+    }
+    i++;
+  }
+  if (s >= 0) out.push(u.subarray(s));
+  return out.map(b => ({t: b[0] & 31, b}));
+}
+const hex2 = v => v.toString(16).padStart(2, '0');
+function h264In(buf){
+  const dv = new DataView(buf), key = dv.getUint8(1) & 1, w = dv.getUint16(2), h = dv.getUint16(4);
+  const au = new Uint8Array(buf, 6);
+  if (w !== fw || h !== fh){ fw = w; fh = h; cv.width = fw; cv.height = fh; layout() }
+  if (vcHas.wc) return wcIn(au, key);
+  if (vcHas.mse) return mseIn(au, key, w, h);
+  send('k');
+}
+function wcIn(au, key){
+  if (!vdec || vdec.state === 'closed'){
+    if (!key){ send('k'); send('idr'); return }
+    vdec = new VideoDecoder({
+      output: f => { ctx.drawImage(f, 0, 0, fw, fh); f.close(); nFrames++; lastFrame = performance.now(); send('k') },
+      error: e => { console.warn('VideoDecoder', e); vdec = null; send('idr') }
+    });
+    vdecCodec = '';
+  }
+  if (key){
+    const sps = nals(au).find(n => n.t === 7);
+    const c = sps ? 'avc1.' + hex2(sps.b[1]) + hex2(sps.b[2]) + hex2(sps.b[3]) : 'avc1.4d4028';
+    if (c !== vdecCodec){ vdec.configure({codec:c, optimizeForLatency:true, hardwareAcceleration:'no-preference'}); vdecCodec = c }
+  } else if (!vdecCodec){ send('k'); return }
+  try{ vdec.decode(new EncodedVideoChunk({type: key ? 'key' : 'delta', timestamp: (vts += 33333), data: au})) }
+  catch(e){ vdec = null; send('idr'); send('k') }
+}
+/* ---- MSE: muxer fMP4 tối giản (1 track avc1, mỗi khung 1 moof+mdat) ---- */
+function box(type, ...parts){
+  let n = 8; for (const p of parts) n += p.length;
+  const o = new Uint8Array(n), dv = new DataView(o.buffer); dv.setUint32(0, n);
+  for (let i = 0; i < 4; i++) o[4 + i] = type.charCodeAt(i);
+  let off = 8; for (const p of parts){ o.set(p, off); off += p.length }
+  return o;
+}
+function u8(...a){ return new Uint8Array(a) }
+function u32(v){ return u8(v >>> 24 & 255, v >>> 16 & 255, v >>> 8 & 255, v & 255) }
+function u16(v){ return u8(v >>> 8 & 255, v & 255) }
+const ZERO = n => new Uint8Array(n);
+const MATRIX = new Uint8Array([0,1,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,1,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0x40,0,0,0]);
+function initSeg(sps, pps, w, h){
+  const avcC = box('avcC', u8(1, sps[1], sps[2], sps[3], 0xff, 0xe1), u16(sps.length), sps, u8(1), u16(pps.length), pps);
+  const avc1 = box('avc1', ZERO(6), u16(1), ZERO(16), u16(w), u16(h), u32(0x00480000), u32(0x00480000), ZERO(4), u16(1),
+                   ZERO(32), u16(0x18), u16(0xffff), avcC);
+  const stbl = box('stbl', box('stsd', ZERO(4), u32(1), avc1), box('stts', ZERO(8)), box('stsc', ZERO(8)), box('stsz', ZERO(12)), box('stco', ZERO(8)));
+  const minf = box('minf', box('vmhd', u32(1), ZERO(8)), box('dinf', box('dref', ZERO(4), u32(1), box('url ', u32(1)))), stbl);
+  const mdia = box('mdia', box('mdhd', ZERO(12), u32(90000), ZERO(4), u16(0x55c4), ZERO(2)),
+                   box('hdlr', ZERO(8), new TextEncoder().encode('vide'), ZERO(12), new TextEncoder().encode('kvm\0')), minf);
+  const tkhd = box('tkhd', u32(7), ZERO(8), u32(1), ZERO(20), ZERO(8), MATRIX, u32(w << 16), u32(h << 16));
+  const moov = box('moov', box('mvhd', ZERO(12), u32(1000), ZERO(4), u32(0x00010000), u16(0x0100), ZERO(10), MATRIX, ZERO(24), u32(2)),
+                   box('trak', tkhd, mdia), box('mvex', box('trex', ZERO(4), u32(1), u32(1), ZERO(12))));
+  const ftyp = box('ftyp', new TextEncoder().encode('isom'), u32(0x200), new TextEncoder().encode('isomiso2avc1mp41'));
+  const o = new Uint8Array(ftyp.length + moov.length); o.set(ftyp); o.set(moov, ftyp.length); return o;
+}
+function mediaSeg(seq, dts, dur, key, nalList){
+  let sz = 0; for (const n of nalList) sz += 4 + n.length;
+  const data = new Uint8Array(sz), dv = new DataView(data.buffer); let off = 0;
+  for (const n of nalList){ dv.setUint32(off, n.length); data.set(n, off + 4); off += 4 + n.length }
+  const mk = doff => box('moof', box('mfhd', ZERO(4), u32(seq)),
+    box('traf', box('tfhd', u32(0x020000), u32(1)), box('tfdt', u32(0x01000000), u32(Math.floor(dts / 4294967296)), u32(dts >>> 0)),
+        box('trun', u32(0x000701), u32(1), u32(doff), u32(dur), u32(sz), u32(key ? 0x02000000 : 0x01010000))));
+  const moof = mk(mk(0).length + 8);
+  const mdat = box('mdat', data);
+  const o = new Uint8Array(moof.length + mdat.length); o.set(moof); o.set(mdat, moof.length); return o;
+}
+function mseReset(){
+  if (mse){ try{ mse.v.remove() }catch(_){} if (mse.url) URL.revokeObjectURL(mse.url) }
+  mse = null;
+}
+function mseIn(au, key, w, h){
+  const list = nals(au), sps = list.find(n => n.t === 7), pps = list.find(n => n.t === 8);
+  const vcl = list.filter(n => n.t !== 7 && n.t !== 8 && n.t !== 9).map(n => n.b);
+  if (!mse || mse.w !== w || mse.h !== h || (key && mse.dead)){
+    if (!key || !sps || !pps){ send('k'); send('idr'); return }
+    mseReset();
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.autoplay = true;
+    v.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0';
+    document.body.appendChild(v);
+    const ms = new MediaSource(), m = {v, ms, sb:null, q:[], seq:1, dts:0, w, h, dead:false, url:URL.createObjectURL(ms)};
+    mse = m; v.src = m.url;
+    ms.addEventListener('sourceopen', () => {
+      const c = 'avc1.' + hex2(sps.b[1]) + hex2(sps.b[2]) + hex2(sps.b[3]);
+      try{ m.sb = ms.addSourceBuffer(`video/mp4; codecs="${c}"`); m.sb.mode = 'segments' }catch(e){ m.dead = true; return }
+      m.sb.addEventListener('updateend', () => msePump(m));
+      m.q.unshift(initSeg(sps.b, pps.b, w, h)); msePump(m);
+    });
+    const paint = () => { if (mse !== m) return;
+      if (v.readyState >= 2){ ctx.drawImage(v, 0, 0, fw, fh); nFrames++; lastFrame = performance.now() }
+      v.requestVideoFrameCallback ? v.requestVideoFrameCallback(paint) : requestAnimationFrame(paint) };
+    v.requestVideoFrameCallback ? v.requestVideoFrameCallback(paint) : requestAnimationFrame(paint);
+  }
+  const m = mse, dur = 1500;                           // 1/60 s: chạy nhanh hơn nguồn -> luôn sát khung mới nhất
+  m.q.push(mediaSeg(m.seq++, m.dts, dur, key, vcl)); m.dts += dur;
+  msePump(m); send('k');
+}
+function msePump(m){
+  if (!m.sb || m.sb.updating || m.dead) return;
+  const v = m.v, b = v.buffered;
+  if (b.length){
+    const end = b.end(b.length - 1);
+    if (end - v.currentTime > 0.25) v.currentTime = end - 0.03;     // tụt -> nhảy tới cuối
+    if (b.start(0) < end - 10){ try{ m.sb.remove(0, end - 5); return }catch(_){} }   // updateend gọi lại pump
+  }
+  if (m.q.length){ try{ m.sb.appendBuffer(m.q.shift()) }catch(e){ m.dead = true; send('idr'); return } }
+  if (v.paused) v.play().catch(() => {});
+}
+function vcSet(d){
+  vcOn = d.codec === 'h264';
+  if (!vcOn){ if (vdec){ try{ vdec.close() }catch(_){} vdec = null } mseReset() }
+  vcPaint(d.avail);
+}
+function vcPaint(avail){
+  const how = vcHas.wc ? 'WebCodecs' : vcHas.mse ? 'MSE' : '';
+  $('vcInfo').textContent = vcOn ? `(đang dùng H.264 · giải mã ${how})` : (avail === false ? '(W105D chưa có encoder H.264)' : !how ? '(trình duyệt không giải mã được H.264)' : '');
+  $('vbrRow').hidden = !vcOn;
+}
+function vcStat(d){
+  if (d.codec === 'h264' && d.venc){ $('vcInfo').textContent = `(H.264 · ${vcHas.wc ? 'WebCodecs' : 'MSE'} · ${d.venc.fps} fps · ${(d.venc.kbps / 1000).toFixed(1)} Mb/s)` }
+}
 function onText(t){
   if (t[0] === 'P'){ rtt = performance.now() - parseFloat(t.slice(2)); return }
   let d; try{ d = JSON.parse(t) }catch(e){ return }
-  if (d.t === 's'){ lastStats = d; updQual(d); updDots() }
+  if (d.t === 's'){ lastStats = d; updQual(d); updDots(); updLeds(d.leds); clipStat(d); vcStat(d); if (d.am && document.activeElement?.parentElement?.id !== 'amode') paintAm(d.am) }
+  else if (d.t === 'codec') vcSet(d);
 }
 function ping(){ send('p ' + performance.now().toFixed(1)) }
 setInterval(ping, 1000);
 setInterval(() => {
   const st = lastStats;
-  $('sFps').textContent = (st && st.chg < 1.5 && nFrames <= 1) ? 'tĩnh' : nFrames;
-  $('sMbps').textContent = (nBytes * 8 / 1e6).toFixed(1);
+  rxFps = nFrames; rxMbps = nBytes * 8 / 1e6;
+  const fpsTxt = (st && st.chg < 1.5 && nFrames <= 1) ? 'tĩnh' : String(nFrames);
+  const rttTxt = rtt === null ? '–' : String(Math.round(rtt));
+  $('sFps').textContent = $('cFps').textContent = fpsTxt;
+  $('uFps').hidden = $('ucFps').hidden = fpsTxt === 'tĩnh';
+  $('sMbps').textContent = rxMbps.toFixed(1);
+  $('sRtt').textContent = $('cRtt').textContent = rttTxt;
   autoTick(nFrames);
-  $('sRtt').textContent = rtt === null ? '–' : Math.round(rtt);
   nFrames = 0; nBytes = 0;
+  updPanel();
   if (!online) return;
   const s = lastStats;
+  const bad = !!(s && (s.err || s.fps < 1));
+  capBad = bad ? capBad + 1 : 0;
+  $('capFix').hidden = capBusy || capBad < 6;           // mất hình > ~6 s mới hiện nút
   if (s && s.err) msg('Capture: ' + s.err);
   else if (!fw) msg('Đang chờ hình…');
-  else if (s && s.fps < 1) msg('Capture không có tín hiệu…');
+  else if (s && s.fps < 1) msg('Capture không có tín hiệu HDMI…');
   else msg('');
 }, 1000);
+let capBad = 0, capBusy = false;
+async function capReset(){
+  if (capBusy) return; capBusy = true; $('capFix').hidden = true; $('aCap').disabled = true; tip('Đang reset card capture…');
+  try{ const r = await api('/sys', {op:'capture'}); tip(r && r.rc === 0 ? r.out : 'Lỗi: ' + (r && r.out)) }catch(e){ tip('Lỗi: ' + e.message) }
+  capBusy = false; capBad = 0; $('aCap').disabled = false; setTimeout(pollSys, 800);
+}
+$('capFix').onclick = capReset;
 function msg(t){ const m = $('msg'); if (m.textContent !== t) m.textContent = t }
+const UDC_TXT = {'configured':'đã nhận', 'not attached':'chưa cắm', 'default':'đang liệt kê', 'addressed':'đang liệt kê',
+                 'powered':'có nguồn, chưa nhận', 'suspended':'máy đích đang ngủ', 'unknown':'?'};
+function udcClass(u){ return u === 'configured' ? 'ok' : (u === 'suspended' ? 'warn' : (u && u !== 'not attached' && u !== 'unknown' ? 'warn' : '')) }
 function updDots(){
-  $('dNet').className = 'dot ' + (online ? 'ok' : '');
-  const u = lastStats && lastStats.udc;
-  $('dUsb').className = 'dot ' + (u === 'configured' ? 'ok' : (u && u !== 'not attached' ? 'warn' : ''));
-  $('dUsb').parentNode.title = 'USB máy đích: ' + (u || '?');
+  const n = 'dot ' + (online ? 'ok' : ''), u = lastStats && lastStats.udc, uc = 'dot ' + udcClass(u);
+  for (const id of ['dNet','hNet','cNet','pNet']) $(id).className = n;
+  for (const id of ['dUsb','hUsb','cUsb','pUsb']) $(id).className = uc;
+  $('dUsb').title = 'USB máy đích: ' + (u || '?');
 }
+let ledVal = null;
+function updLeds(v){
+  ledVal = (typeof v === 'number') ? v : null;
+  const c = ledVal !== null && (ledVal & 2), n = ledVal !== null && (ledVal & 1);
+  for (const id of ['lCaps','cCaps']){ $(id).hidden = !c; $(id).classList.toggle('on', !!c) }
+  $('lNum').hidden = ledVal === null; $('lNum').classList.toggle('on', !!n);
+}
+function updPanel(){
+  if (!document.body.classList.contains('panel')) return;
+  const s = lastStats;
+  $('vNet').textContent = online ? 'đã kết nối' : 'mất kết nối';
+  $('vUdc').textContent = s ? (UDC_TXT[s.udc] || s.udc) : '–';
+  $('vCap').textContent = s && s.mode ? `${s.mode[0]}×${s.mode[1]} @${s.mode[2]} · ${s.fps} fps` : (s && s.err ? 'lỗi' : '–');
+  $('vRx').textContent = `${rxFps} fps · ${rxMbps.toFixed(1)} Mb/s`;
+  $('vRtt').textContent = rtt === null ? '–' : Math.round(rtt) + ' ms';
+  $('vLeds').textContent = ledVal === null ? 'chưa nhận' : ['Num ' + (ledVal & 1 ? 'bật' : 'tắt'), 'Caps ' + (ledVal & 2 ? 'bật' : 'tắt')].join(' · ');
+}
+
+/* ---- chọn độ phân giải: 2 ô (kích thước + fps) ---- */
 let qKey = '';
-function updQual(d){
-  const sel = $('qual'), key = JSON.stringify(d.modes || []);
-  if (key !== qKey){
-    qKey = key; sel.innerHTML = '';
-    const oa = document.createElement('option'); oa.value = 'auto'; oa.textContent = 'Tự động (theo mạng)'; sel.appendChild(oa);
-    for (const [w,h,f] of d.modes || []){
-      const o = document.createElement('option'); o.value = `${w} ${h} ${f}`;
-      o.textContent = `${w}×${h} @${f}`; sel.appendChild(o);
-    }
-  }
-  if (document.activeElement !== sel){
-    if (auto.on) sel.value = 'auto';
-    else if (d.mode) sel.value = d.mode.join(' ');
-  }
-  const oa = sel.querySelector('option[value=auto]');
-  if (oa) oa.textContent = 'Tự động' + (auto.on && d.mode ? ` (${d.mode[1]}p${d.mode[2]})` : ' (theo mạng)');
+function resList(){ const m = (lastStats && lastStats.modes) || [], o = []; for (const [w,h] of m){ const k = w + 'x' + h; if (!o.includes(k)) o.push(k) } return o }
+function fpsFor(res){ return ((lastStats && lastStats.modes) || []).filter(([w,h]) => w + 'x' + h === res).map(x => x[2]) }
+function fillFps(res, cur){
+  const sel = $('qFps'), list = fpsFor(res);
+  sel.innerHTML = list.map(f => `<option value="${f}">${f} fps</option>`).join('');
+  if (cur && list.includes(cur)) sel.value = String(cur);
 }
-$('qual').onchange = e => {
+function updQual(d){
+  const rs = $('qRes'), key = JSON.stringify(d.modes || []);
+  if (key !== qKey){
+    qKey = key;
+    rs.innerHTML = '<option value="auto">Tự động</option>' + resList().map(r => `<option value="${r}">${r.replace('x','×')}</option>`).join('');
+  }
+  const busy = document.activeElement === rs || document.activeElement === $('qFps');
+  if (!busy && d.mode){
+    const cur = d.mode[0] + 'x' + d.mode[1];
+    rs.value = auto.on ? 'auto' : cur;
+    fillFps(cur, d.mode[2]);
+    $('qFps').disabled = auto.on;
+  }
+  const oa = rs.querySelector('option[value=auto]');
+  if (oa) oa.textContent = 'Tự động' + (auto.on && d.mode ? ` (${d.mode[1]}p)` : '');
+}
+$('qRes').onchange = e => {
   const v = e.target.value;
-  setAuto(v === 'auto');
-  if (v !== 'auto'){ send('q ' + v); tip('Độ phân giải: ' + e.target.selectedOptions[0].textContent) }
-  else tip('Tự động chọn độ phân giải/fps theo mạng');
-  refocus();
+  setAuto(v === 'auto'); $('qFps').disabled = auto.on;
+  if (v === 'auto'){ tip('Tự chọn độ phân giải/fps theo mạng'); return }
+  const cur = lastStats && lastStats.mode ? lastStats.mode[2] : 30, list = fpsFor(v);
+  const f = list.includes(cur) ? cur : (list.find(x => x <= 30) || list[0]);
+  fillFps(v, f); send(`q ${v.replace('x',' ')} ${f}`); tip(`Độ phân giải: ${v.replace('x','×')} @${f}`);
+};
+$('qFps').onchange = e => {
+  const r = $('qRes').value; if (r === 'auto') return;
+  setAuto(false); send(`q ${r.replace('x',' ')} ${e.target.value}`); tip(`${r.replace('x','×')} @${e.target.value} fps`);
 };
 /* Tự động: hạ mức khi mạng không theo kịp, thử nâng lại định kỳ (backoff nếu thất bại) */
 const LADDER = [[1920,1080,60],[1920,1080,30],[1280,720,60],[1280,720,30],[1280,720,20]];
@@ -276,6 +958,7 @@ function goIdx(L, i, probing){ auto.prevIdx = curIdx(L); send('q ' + L[i].join('
 function autoTick(got){
   const s = lastStats; if (!auto.on || !s || !online || document.hidden) return;
   const L = ladder(); if (!L.length) return;
+  if (vcOn){ if (s.mode && (s.mode[0] !== 1920 || s.mode[2] !== 30) && L.some(l => l[0] === 1920 && l[2] === 30) && performance.now() - auto.tChange > 3000){ send('q 1920 1080 30'); auto.tChange = performance.now() } return }
   const i = curIdx(L); if (i < 0){ goIdx(L, 0, false); return }
   const now = performance.now(); if (now - auto.tChange < 3000) return;   // chờ ổn định sau khi đổi
   const want = Math.min(s.chg, s.mode[2]);
@@ -290,28 +973,27 @@ function autoTick(got){
   if (auto.good >= 8 && i > 0 && now - auto.tChange > auto.backoff) goIdx(L, i - 1, true);
 }
 setAuto(store.get('auto', '1') === '1');
-$('win').value = store.get('win', '2');
-$('win').onchange = e => { store.set('win', e.target.value); send('win ' + e.target.value); refocus() };
+if (!vcHas.wc && !vcHas.mse) vcWant = 'mjpeg';
+const paintAm = seg('amode', 'mouse', v => { send('am ' + v); tip(v === 'pen' ? 'Con trỏ tuyệt đối = bút cảm ứng (cho Android)' : 'Con trỏ tuyệt đối = chuột (rê/hover, kéo bôi đen)') });
+seg('vcodec', vcWant, v => { vcWant = v; store.set('vcodec', v); send('codec ' + v); tip(v === 'h264' ? 'Nén H.264 phần cứng: ít băng thông, mượt hơn' : 'MJPEG: mỗi khung là 1 ảnh JPEG') });
+seg('vbr', store.get('vbr', '6000'), v => { store.set('vbr', v); send('kbps ' + v); tip(`Bitrate H.264: ${v / 1000} Mb/s`) });
+seg('win', winVal, v => { winVal = v; store.set('win', v); send('win ' + v); tip({1:'Ưu tiên độ trễ thấp',2:'Cân bằng',3:'Ưu tiên mượt (mạng chậm)'}[v]) });
 
 /* ================= bố cục ================= */
 let touchUI = false;
 function setTouchUI(on){
   if (touchUI === on) return; touchUI = on;
   document.body.classList.toggle('touch', on);
-  if (on){ pinned = false; bar.classList.add('hide') }
+  if (on){ pinned = false; bar.classList.add('hide'); closeKeys() }
   layout();
 }
 function layout(){
   const vv = window.visualViewport;
   const vh = vv ? vv.height : innerHeight, vt = vv ? vv.offsetTop : 0;
   const mob = $('mob');
-  let bottom = 0;
-  {
-    // đặt thanh mobile ngay trên bàn phím ảo
-    const kbH = Math.max(0, innerHeight - vh - vt);
-    mob.style.bottom = kbH + 'px';
-    bottom = kbH + mob.offsetHeight;
-  }
+  const kbH = Math.max(0, innerHeight - vh - vt);           // đặt thanh dưới ngay trên bàn phím ảo
+  mob.style.bottom = kbH + 'px';
+  const bottom = kbH + mob.offsetHeight;
   const st = $('stage'); st.style.top = vt + 'px'; st.style.bottom = bottom + 'px';
   if (!fw) return;
   const W = st.clientWidth, H = st.clientHeight;
@@ -355,29 +1037,267 @@ function followCursor(){                      // khi zoom: tự cuộn khung nh�
   if (cy < st.top + M) dy = st.top + M - cy; else if (cy > st.bottom - M) dy = st.bottom - M - cy;
   if (dx || dy){ tx += dx; ty += dy; applyZoom() }
 }
-addEventListener('resize', layout);
+addEventListener('resize', () => { layout(); closeKeys() });
 if (window.visualViewport){ visualViewport.addEventListener('resize', layout); visualViewport.addEventListener('scroll', layout) }
 let tipT;
 function tip(t){ const e = $('tip'); e.textContent = t; e.classList.add('show'); clearTimeout(tipT); tipT = setTimeout(() => e.classList.remove('show'), 1800) }
 const kbdOpen = () => document.body.classList.contains('kbd');
-function refocus(){ if (kbdOpen()) $('ki').focus({preventScroll:true}); else if (!touchUI) cv.focus() }
+const panelOpen = () => document.body.classList.contains('panel');
+function refocus(){ if (panelOpen()) return; if (kbdOpen()) $('ki').focus({preventScroll:true}); else if (!touchUI) cv.focus() }
 
-/* ================= toolbar ================= */
+/* ================= thanh công cụ ================= */
 const bar = $('top'); let pinned = store.get('pin', '0') === '1', hideT;
-function showBar(){ bar.classList.remove('hide'); clearTimeout(hideT); if (!pinned && !touchUI) hideT = setTimeout(() => { if (!bar.matches(':hover') && !bar.contains(document.activeElement)) bar.classList.add('hide') }, 2500) }
+function canHide(){ return !pinned && !touchUI && !keysOpen() && !panelOpen() }
+function showBar(){
+  bar.classList.remove('hide'); clearTimeout(hideT);
+  if (canHide()) hideT = setTimeout(function h(){
+    if (!canHide()) return;
+    if (bar.matches(':hover') || bar.contains(document.activeElement) && document.activeElement !== cv){ hideT = setTimeout(h, 1200); return }
+    bar.classList.add('hide');
+  }, 2500);
+}
 $('hot').addEventListener('pointerenter', showBar);
+$('handle').addEventListener('pointerenter', showBar);
+$('handle').addEventListener('click', showBar);
 bar.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') showBar() });
 $('bPin').classList.toggle('on', pinned);
-$('bPin').onclick = () => { pinned = !pinned; store.set('pin', pinned ? '1' : '0'); $('bPin').classList.toggle('on', pinned); showBar() };
+$('bPin').onclick = () => { pinned = !pinned; store.set('pin', pinned ? '1' : '0'); $('bPin').classList.toggle('on', pinned); tip(pinned ? 'Đã ghim thanh công cụ' : 'Thanh công cụ tự ẩn'); showBar() };
+
+/* ---- bảng điều khiển ---- */
+let curTab = store.get('tab', 'gen');
+function setTab(t){
+  curTab = t; store.set('tab', t);
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === t));
+  $('panel').querySelector('.pb').scrollTop = 0; panelTick();
+}
+document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+function openPanel(tab){ if (typeof tab === 'string') setTab(tab); else setTab(curTab); document.body.classList.add('panel'); closeKeys(); if (kbdOpen()) setKbd(false); releaseAll(); updPanel(); pollUsb(); panelTick();
+  $('mMenu').classList.add('on'); $('bSet').classList.add('on'); clearTimeout(hideT); if (!touchUI) setTimeout(() => $('pClose').focus({preventScroll:true}), 50) }
+function closePanel(){ if (!panelOpen()) return; document.body.classList.remove('panel'); $('mMenu').classList.remove('on'); $('bSet').classList.remove('on'); showBar(); refocus() }
+$('bSet').onclick = () => panelOpen() ? closePanel() : openPanel();
+$('bStat').onclick = () => openPanel('gen');
+$('pClose').onclick = closePanel;
+$('scrim').addEventListener('pointerdown', e => { e.preventDefault(); closePanel(); closeKeys() });
+
+/* ---- phím tắt (ngăn riêng, theo hệ điều hành máy đích) ---- */
+// combo: tên phím hidfwd nối bằng '+'; cmd/opt (macOS) và super (Linux) đổi sang win/alt khi gửi.
+// cờ: 'd' = nguy hiểm (tô đỏ) · 'spam' = bấm liên tục 12 giây · 'hold' = giữ 15 giây (khi bật máy)
+const SC = {
+  win: [
+    ['Hệ thống', [
+      ['Màn hình bảo mật', 'ctrl+alt+delete', 'd'], ['Task Manager', 'ctrl+shift+esc'], ['Khoá máy', 'win+l'],
+      ['Hộp Run', 'win+r'], ['Menu nguồn / Win+X', 'win+x'], ['Cài đặt', 'win+i'], ['File Explorer', 'win+e'], ['Tìm kiếm', 'win+s'],
+    ]],
+    ['Cửa sổ', [
+      ['Menu Start', 'win'], ['Chuyển cửa sổ', 'alt+tab'], ['Đóng cửa sổ', 'alt+f4'], ['Hiện desktop', 'win+d'],
+      ['Task View', 'win+tab'], ['Phóng to', 'win+up'], ['Thu nhỏ', 'win+down'], ['Ghim trái', 'win+left'], ['Ghim phải', 'win+right'],
+      ['Desktop ảo trái', 'ctrl+win+left'], ['Desktop ảo phải', 'ctrl+win+right'],
+    ]],
+    ['Soạn thảo', [
+      ['Copy', 'ctrl+c'], ['Cắt', 'ctrl+x'], ['Dán', 'ctrl+v'], ['Hoàn tác', 'ctrl+z'], ['Làm lại', 'ctrl+y'], ['Chọn hết', 'ctrl+a'],
+      ['Lưu', 'ctrl+s'], ['Tìm', 'ctrl+f'], ['Lịch sử clipboard', 'win+v'], ['Emoji', 'win+.'], ['Đổi bàn phím / ngôn ngữ', 'win+space'],
+    ]],
+    ['Trình duyệt', [
+      ['Tab mới', 'ctrl+t'], ['Đóng tab', 'ctrl+w'], ['Mở lại tab vừa đóng', 'ctrl+shift+t'], ['Tab kế tiếp', 'ctrl+tab'],
+      ['Thanh địa chỉ', 'ctrl+l'], ['Tải lại', 'f5'], ['Tải lại bỏ cache', 'ctrl+f5'], ['DevTools', 'f12'],
+    ]],
+    ['Chụp màn hình', [['Chụp toàn màn hình', 'printscreen'], ['Chụp vùng (Snipping)', 'win+shift+s'], ['Chụp cửa sổ', 'alt+printscreen']]],
+    ['Khi bật máy (BIOS)', [
+      ['Vào BIOS', 'f2', 'spam'], ['Vào BIOS', 'delete', 'spam'], ['Boot menu', 'f12', 'spam'],
+      ['Boot menu (Intel NUC)', 'f10', 'spam'], ['Bỏ qua / menu', 'esc', 'spam'], ['Menu GRUB', 'esc', 'spam'],
+    ]],
+  ],
+  mac: [
+    ['Hệ thống', [
+      ['Spotlight', 'cmd+space'], ['Buộc thoát ứng dụng', 'cmd+opt+esc', 'd'], ['Khoá màn hình', 'ctrl+cmd+q'], ['Đăng xuất', 'cmd+shift+q', 'd'],
+      ['Thoát ứng dụng', 'cmd+q'], ['Ẩn ứng dụng', 'cmd+h'], ['Cài đặt của ứng dụng', 'cmd+,'], ['Tìm trong Finder', 'cmd+opt+space'],
+    ]],
+    ['Cửa sổ', [
+      ['Chuyển ứng dụng', 'cmd+tab'], ['Cửa sổ khác cùng app', 'cmd+`'], ['Đóng cửa sổ', 'cmd+w'], ['Thu nhỏ', 'cmd+m'],
+      ['Toàn màn hình', 'ctrl+cmd+f'], ['Mission Control', 'ctrl+up'], ['Cửa sổ của app', 'ctrl+down'],
+      ['Space trái', 'ctrl+left'], ['Space phải', 'ctrl+right'], ['Hiện desktop', 'f11'],
+    ]],
+    ['Soạn thảo', [
+      ['Copy', 'cmd+c'], ['Cắt', 'cmd+x'], ['Dán', 'cmd+v'], ['Dán không định dạng', 'cmd+opt+shift+v'], ['Hoàn tác', 'cmd+z'],
+      ['Làm lại', 'cmd+shift+z'], ['Chọn hết', 'cmd+a'], ['Lưu', 'cmd+s'], ['Tìm', 'cmd+f'], ['Emoji', 'ctrl+cmd+space'], ['Đổi nguồn nhập', 'ctrl+space'],
+    ]],
+    ['Trình duyệt', [
+      ['Tab mới', 'cmd+t'], ['Đóng tab', 'cmd+w'], ['Mở lại tab vừa đóng', 'cmd+shift+t'], ['Tab kế tiếp', 'ctrl+tab'],
+      ['Thanh địa chỉ', 'cmd+l'], ['Tải lại', 'cmd+r'], ['Tải lại bỏ cache', 'cmd+shift+r'], ['DevTools', 'cmd+opt+i'],
+    ]],
+    ['Finder', [
+      ['Đi tới thư mục', 'cmd+shift+g'], ['Hiện/ẩn file ẩn', 'cmd+shift+.'], ['Thư mục mới', 'cmd+shift+n'],
+      ['Chuyển vào Thùng rác', 'cmd+backspace'], ['Applications', 'cmd+shift+a'], ['Downloads', 'cmd+opt+l'],
+    ]],
+    ['Chụp màn hình', [['Chụp toàn màn hình', 'cmd+shift+3'], ['Chụp vùng', 'cmd+shift+4'], ['Công cụ chụp / quay', 'cmd+shift+5']]],
+    ['Khi bật máy (Mac Intel)', [
+      ['Chọn ổ khởi động', 'opt', 'hold'], ['Recovery', 'cmd+r', 'hold'], ['Safe mode', 'shift', 'hold'],
+      ['Reset NVRAM', 'opt+cmd+p+r', 'hold'],
+    ]],
+  ],
+  linux: [
+    ['Hệ thống', [
+      ['Activities / menu', 'super'], ['Danh sách ứng dụng', 'super+a'], ['Mở Terminal', 'ctrl+alt+t'], ['Chạy lệnh', 'alt+f2'],
+      ['Khoá máy', 'super+l'], ['Đăng xuất / tắt máy', 'ctrl+alt+delete', 'd'], ['Thông báo', 'super+v'],
+    ]],
+    ['Cửa sổ', [
+      ['Chuyển cửa sổ', 'alt+tab'], ['Cửa sổ khác cùng app', 'alt+`'], ['Đóng cửa sổ', 'alt+f4'], ['Phóng to', 'super+up'],
+      ['Khôi phục', 'super+down'], ['Ghim trái', 'super+left'], ['Ghim phải', 'super+right'],
+      ['Workspace trước', 'super+pageup'], ['Workspace sau', 'super+pagedown'], ['Hiện desktop', 'super+d'],
+    ]],
+    ['Terminal', [
+      ['Copy', 'ctrl+shift+c'], ['Dán', 'ctrl+shift+v'], ['Ngắt lệnh (Ctrl+C)', 'ctrl+c'], ['Thoát / EOF', 'ctrl+d'],
+      ['Xoá màn hình', 'ctrl+l'], ['Tìm lệnh cũ', 'ctrl+r'], ['Tạm dừng tiến trình', 'ctrl+z'], ['Tab terminal mới', 'ctrl+shift+t'],
+    ]],
+    ['Soạn thảo & trình duyệt', [
+      ['Copy', 'ctrl+c'], ['Dán', 'ctrl+v'], ['Hoàn tác', 'ctrl+z'], ['Làm lại', 'ctrl+shift+z'], ['Chọn hết', 'ctrl+a'], ['Lưu', 'ctrl+s'],
+      ['Tìm', 'ctrl+f'], ['Tab mới', 'ctrl+t'], ['Đóng tab', 'ctrl+w'], ['Mở lại tab vừa đóng', 'ctrl+shift+t'], ['Thanh địa chỉ', 'ctrl+l'], ['Tải lại', 'f5'],
+    ]],
+    ['Chụp màn hình', [['Chụp màn hình', 'printscreen'], ['Chụp vùng', 'shift+printscreen'], ['Chụp cửa sổ', 'alt+printscreen']]],
+    ['Console (TTY)', [
+      ['TTY1', 'ctrl+alt+f1'], ['TTY2', 'ctrl+alt+f2'], ['TTY3', 'ctrl+alt+f3'], ['TTY4', 'ctrl+alt+f4'],
+      ['Về giao diện (F7)', 'ctrl+alt+f7'], ['Về giao diện (F2, GDM mới)', 'ctrl+alt+f2'],
+    ]],
+    ['Khi bật máy (GRUB / BIOS)', [
+      ['Menu GRUB', 'shift', 'hold'], ['Menu GRUB', 'esc', 'spam'],
+      ['Vào BIOS', 'f2', 'spam'], ['Vào BIOS', 'delete', 'spam'], ['Boot menu', 'f12', 'spam'],
+    ]],
+  ],
+};
+const OSL = {win:'Windows', mac:'macOS', linux:'Linux'};
+const KMOD = {win:{ctrl:'Ctrl', alt:'Alt', shift:'Shift', win:'Win'}, linux:{ctrl:'Ctrl', alt:'Alt', shift:'Shift', win:'Super'},
+              mac:{ctrl:'⌃', alt:'⌥', shift:'⇧', win:'⌘'}};
+const KNAME = {esc:'Esc', tab:'Tab', enter:'Enter', space:'Space', backspace:'⌫', delete:'Del', up:'↑', down:'↓', left:'←', right:'→',
+               printscreen:'PrtSc', pageup:'PgUp', pagedown:'PgDn', home:'Home', end:'End', insert:'Ins'};
+const normKey = k => ({cmd:'win', command:'win', super:'win', meta:'win', opt:'alt', option:'alt', del:'delete'}[k] || k);
+const comboOf = c => c.split('+').map(normKey).join('+');
+const MOD_ORDER = {mac:['ctrl', 'alt', 'shift', 'win'], win:['ctrl', 'win', 'alt', 'shift'], linux:['ctrl', 'win', 'alt', 'shift']};
+function capsOf(c, os){
+  const ks = comboOf(c).split('+'), mods = ks.filter(k => k in KMOD.win), rest = ks.filter(k => !(k in KMOD.win));
+  if (os === 'mac' && !rest.length) return mods.map(k => KMOD.mac[k]);
+  const ord = MOD_ORDER[os]; mods.sort((a, b) => ord.indexOf(a) - ord.indexOf(b));
+  return mods.map(k => KMOD[os][k]).concat(rest.map(k => KNAME[k] || (k.length === 1 ? k.toUpperCase() : k.toUpperCase())));
+}
+const HIDU = {ctrl:0xe0, shift:0xe1, alt:0xe2, win:0xe3, esc:0x29, delete:0x4c, space:0x2c};
+const usageOf = k => HIDU[k] || (k.length === 1 && k >= 'a' && k <= 'z' ? 4 + k.charCodeAt(0) - 97 : /^f\d+$/.test(k) ? 0x39 + +k.slice(1) : 0);
+
+let kos = store.get('kos', '') || 'win', kq = '', job = null;
+function stopJob(msg){ if (!job) return; clearInterval(job.t); if (job.up) job.up(); job = null; paintKeys(); if (msg) tip(msg) }
+function runShortcut(lab, c, flag){
+  if (job){ const same = job.c === c; stopJob('Đã dừng'); if (same) return }
+  const combo = comboOf(c);
+  if (flag === 'spam'){
+    let n = 0; const N = 40;
+    job = {c, t:setInterval(() => { send('c ' + combo); if (++n >= N) stopJob('Xong: ' + lab) }, 300)};
+    send('c ' + combo); tip(`${lab} – 12 giây (bấm lại để dừng). Bật/khởi động lại máy đích ngay.`); paintKeys(); closeKeys(); return;
+  }
+  if (flag === 'hold'){
+    const us = combo.split('+').map(usageOf).filter(Boolean); let left = 15;
+    for (const u of us) send('d ' + u);
+    job = {c, up:() => { for (const u of us.slice().reverse()) send('u ' + u) }, t:setInterval(() => {
+      if (--left <= 0) stopJob('Đã nhả: ' + lab); else tip(`Đang giữ ${capsOf(c, kos).join('')} – còn ${left} giây`) }, 1000)};
+    tip(`Đang giữ ${capsOf(c, kos).join('')} 15 giây – bật/khởi động lại máy đích ngay`); paintKeys(); closeKeys(); return;
+  }
+  send('c ' + combo); vib(6); tip(`Đã gửi ${capsOf(c, kos).join(kos === 'mac' ? '' : '+')} · ${lab}`);
+  if (!pinKeys()) closeKeys();
+}
+// ---- hàng phím BIOS / Boot (bàn phím chuẩn boot của W105D: BIOS/UEFI/GRUB nhận được) ----
+const BOOTK = [['f2', 'F2', 'BIOS'], ['f10', 'F10', 'Boot NUC'], ['f12', 'F12', 'Boot menu'], ['delete', 'Del', 'BIOS'], ['esc', 'Esc', 'GRUB']];
+const NAVK = [['esc', 'Esc'], ['up', '↑'], ['down', '↓'], ['left', '←'], ['right', '→'], ['enter', 'Enter'], ['tab', 'Tab'],
+              ['pageup', 'PgUp'], ['pagedown', 'PgDn'], ['f5', 'F5'], ['f6', 'F6'], ['f9', 'F9'], ['f10', 'F10']];
+function paintBios(){
+  const B = $('bBoot'), N = $('bNav'), C = $('bCmd');
+  if (!B.childElementCount){
+    for (const [k, cap, lab] of BOOTK){
+      const b = document.createElement('button'); b.className = 'bk boot'; b.dataset.k = k;
+      b.title = `${lab}: bấm ${cap} liên tục 12 giây (bấm lại để dừng), rồi bật/khởi động lại máy đích`;
+      b.innerHTML = `${cap}<small>${lab}</small>`; b.onclick = () => { runShortcut(lab + ' (' + cap + ')', k, 'spam');
+        if (lab === 'GRUB' && job) tip('Esc liên tục 12 giây. Ubuntu: Esc lần 1 hiện menu, lần 2 xuống grub> – khi đó bấm "grub> normal" để về menu') };
+      B.appendChild(b);
+    }
+    for (const [k, cap] of NAVK){
+      const b = document.createElement('button'); b.className = 'bk'; b.textContent = cap; b.title = 'Gửi ' + cap;
+      b.onclick = () => { send('c ' + k); vib(4) }; N.appendChild(b);
+    }
+    const g = document.createElement('button'); g.className = 'bk'; g.textContent = 'grub> normal';
+    g.title = 'Đang ở dòng lệnh grub>: gõ "normal" + Enter để mở lại menu GRUB';
+    g.onclick = () => { send('t normal'); setTimeout(() => send('c enter'), 500); tip('Đã gõ normal ⏎ – menu GRUB sẽ hiện lại') }; N.appendChild(g);
+  }
+  B.querySelectorAll('.bk').forEach(b => b.classList.toggle('run', !!(job && job.c === b.dataset.k)));
+  C.innerHTML = '';
+  const add = (lab, fn, t) => { const b = document.createElement('button'); b.className = 'bk cmd'; b.textContent = lab; b.title = t; b.onclick = fn; C.appendChild(b) };
+  if (kos === 'win') add('↻ Khởi động lại vào BIOS', rebootFw, 'Windows: Win+R → shutdown /r /fw /t 0 (chạy quyền admin)');
+  if (kos === 'linux') add('↻ Khởi động lại vào BIOS', rebootFw, 'Linux: sudo systemctl reboot --firmware-setup (gõ vào terminal đang mở)');
+}
+async function rebootFw(){
+  if (kos === 'win'){
+    if (!confirm('Khởi động lại máy đích (Windows) thẳng vào BIOS?\nSẽ gõ: Win+R → shutdown /r /fw /t 0 (Ctrl+Shift+Enter để chạy quyền admin).\nNhớ lưu việc đang làm trên máy đích.')) return;
+    closeKeys(); send('c win+r'); await sleep(1300); send('t shutdown /r /fw /t 0'); await sleep(900); send('c ctrl+shift+enter');
+    tip('Nếu hiện hộp UAC, bấm "Có" (Alt+Y). Máy đích sẽ khởi động lại vào BIOS');
+  } else if (kos === 'linux'){
+    if (!confirm('Khởi động lại máy đích (Linux) thẳng vào BIOS?\nSẽ gõ vào cửa sổ đang mở: sudo systemctl reboot --firmware-setup\nHãy chắc con trỏ đang ở terminal hoặc console.')) return;
+    closeKeys(); send('t sudo systemctl reboot --firmware-setup'); await sleep(600); send('c enter');
+    tip('Nhập mật khẩu sudo trên máy đích nếu được hỏi');
+  }
+}
+const pinKeys = () => !touchUI && $('kPin').checked;
+function paintKeys(){
+  document.querySelectorAll('#kOs button').forEach(b => b.classList.toggle('on', b.dataset.v === kos));
+  const L = $('kList'), q = kq.trim().toLowerCase(); L.innerHTML = '';
+  const fold = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').toLowerCase();
+  const fq = fold(q);
+  let n = 0;
+  for (const [g, items] of SC[kos]){
+    const vis = items.filter(([lab, c]) => !fq || fold(lab).includes(fq) || fold(capsOf(c, kos).join(' ')).includes(fq) || c.includes(fq));
+    if (!vis.length) continue;
+    const h = document.createElement('div'); h.className = 'kgh'; h.textContent = g; L.appendChild(h);
+    for (const [lab, c, flag] of vis){
+      const b = document.createElement('button'); n++;
+      b.className = 'sk' + (flag === 'd' ? ' danger' : '') + (job && job.c === c ? ' run' : '');
+      const caps = flag === 'spam' || flag === 'hold' ? `<span class="tag">${flag === 'spam' ? 'bấm liên tục' : 'giữ 15 giây'}</span>` : '';
+      b.innerHTML = `<span class="sn">${esc(lab)}</span>${caps}<span class="kc">${capsOf(c, kos).map(k => `<kbd>${esc(k)}</kbd>`).join('')}</span>`;
+      b.onclick = () => runShortcut(lab, c, flag);
+      L.appendChild(b);
+    }
+  }
+  if (!n) L.innerHTML = '<div class="empty">Không có phím tắt nào khớp.</div>';
+  // nhãn phím bổ trợ trên hàng phím phụ đổi theo hệ điều hành
+  paintModLabels(); paintBios();
+}
+function paintModLabels(){
+  const L = kos === 'mac' ? {ctrl:'⌃ Ctrl', alt:'⌥ Opt', shift:'⇧ Shift', win:'⌘ Cmd'} : {ctrl:'Ctrl', alt:'Alt', shift:'Shift', win:KMOD[kos].win};
+  xk.querySelectorAll('.k').forEach(b => { const v = b.dataset.v; if (v && v[0] === '#') b.textContent = L[v.slice(1)] });
+}
+function setKos(o){ kos = o; store.set('kos', o); paintKeys() }
+const keysOpen = () => document.body.classList.contains('kp');
+function openKeys(){
+  if (panelOpen()) closePanel();
+  if (kbdOpen()) setKbd(false);
+  document.body.classList.add('kp'); $('bKeys').classList.add('on'); $('mKeys').classList.add('on'); releaseAll(); clearTimeout(hideT);
+  paintKeys();
+  if (!store.get('kos', '')) api('/clip').then(d => { const a = d && d.agents.find(a => a.online && /windows|linux|mac/.test(a.os)); if (a && !store.get('kos', '')) setKos(a.os === 'windows' ? 'win' : a.os === 'linux' ? 'linux' : 'mac') }).catch(() => {});
+  if (!touchUI) setTimeout(() => $('kq').focus({preventScroll:true}), 60);
+}
+function closeKeys(){ if (!keysOpen()) return; document.body.classList.remove('kp'); $('bKeys').classList.remove('on'); $('mKeys').classList.remove('on'); showBar(); refocus() }
+$('bKeys').onclick = () => keysOpen() ? closeKeys() : openKeys();
+$('kClose').onclick = closeKeys;
+document.querySelectorAll('#kOs button').forEach(b => b.onclick = () => setKos(b.dataset.v));
+$('kq').addEventListener('input', e => { kq = e.target.value; paintKeys() });
+$('kq').addEventListener('keydown', e => { if (e.key === 'Enter'){ const b = $('kList').querySelector('.sk'); if (b){ e.preventDefault(); b.click() } } });
+$('kPin').checked = store.get('kpin', '0') === '1';
+$('kPin').onchange = e => store.set('kpin', e.target.checked ? '1' : '0');
+$('kRel').onclick = () => { stopJob(); doRelease() };
+$('kMac').onclick = () => openPanel('mac');
 
 /* ================= chuột (máy tính) ================= */
 let mmode = store.get('mmode', 'abs'), btns = 0, mx = 16384, my = 16384, wacc = 0;
-$('mmode').value = mmode; document.body.classList.toggle('rel', mmode === 'rel');
-$('mmode').onchange = e => {
-  mmode = e.target.value; store.set('mmode', mmode); document.body.classList.toggle('rel', mmode === 'rel');
+document.body.classList.toggle('rel', mmode === 'rel');
+seg('mmode', mmode, v => {
+  mmode = v; store.set('mmode', mmode); document.body.classList.toggle('rel', mmode === 'rel');
   if (mmode !== 'rel' && document.pointerLockElement) document.exitPointerLock();
-  tip(mmode === 'rel' ? (touchUI ? 'Chuột tương đối' : 'Click vào màn hình để khoá chuột – Esc để thoát') : 'Chuột tuyệt đối'); refocus();
-};
+  tip(mmode === 'rel' ? (touchUI ? 'Chuột tương đối' : 'Click vào màn hình để khoá chuột – Esc để thoát') : 'Chuột tuyệt đối');
+});
 const locked = () => document.pointerLockElement === cv;
 function absPos(e){
   const r = cv.getBoundingClientRect(); if (!r.width) return;
@@ -404,6 +1324,7 @@ cv.addEventListener('pointermove', e => {
 cv.addEventListener('pointerdown', e => {
   if (e.pointerType === 'touch') return;
   setTouchUI(false); cv.focus(); e.preventDefault();
+  if (!pinned) bar.classList.add('hide');
   if (mmode === 'rel' && !locked()){
     try{ const p = cv.requestPointerLock({unadjustedMovement:true}); if (p && p.catch) p.catch(() => cv.requestPointerLock()) }catch(_){ cv.requestPointerLock() }
     return;
@@ -413,19 +1334,27 @@ cv.addEventListener('pointerdown', e => {
 });
 cv.addEventListener('pointerup', e => { if (e.pointerType === 'touch') return; e.preventDefault(); if (mmode === 'abs') absPos(e); btns = e.buttons & 7; sendMouse(0, 0, 0) });
 document.addEventListener('contextmenu', e => e.preventDefault());
+let wLast = 0;
 cv.addEventListener('wheel', e => {
   e.preventDefault();
-  let d = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
-  let n = wheelSteps(d, 100);
-  if (!n && e.deltaMode === 0 && Math.abs(d) > 30){ n = Math.sign(d); wacc = 0 }
+  const now = performance.now(); if (now - wLast > 250) wacc = 0; wLast = now;   // ngừng cuộn -> bỏ phần dư
+  let n;
+  const wd = e.wheelDeltaY;
+  const notch = e.deltaMode === 1 || (e.deltaMode === 0 && Math.abs(e.deltaY) >= 40);
+  if (wd && wd % 120 === 0 && notch && !e.deltaX){ n = -wd / 120; wacc = 0 }   // chuột có nấc: 1 nấc thật = 1 nấc
+  else {                                                                        // touchpad / cuộn mượt: gom 100 px = 1 nấc
+    const d = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
+    n = wheelSteps(d, 100);
+  }
+  n = Math.max(-3, Math.min(3, n));
   if (n) sendMouse(0, 0, -n);
 }, {passive:false});
 document.addEventListener('pointerlockchange', () => { if (!locked()){ btns = 0; send('x') } else tip('Đã khoá chuột – Esc để thoát') });
 
 /* ================= cảm ứng ================= */
 let tmode = store.get('tmode', 'pad');
-$('tmode').value = tmode; document.body.classList.toggle('pad', tmode === 'pad');
-$('tmode').onchange = e => { tmode = e.target.value; store.set('tmode', tmode); document.body.classList.toggle('pad', tmode === 'pad'); drawCursor(); tip(tmode === 'pad' ? 'Touchpad: kéo 1 ngón để di chuột, chạm để click' : 'Chạm trực tiếp vào điểm cần click'); refocus() };
+document.body.classList.toggle('pad', tmode === 'pad');
+seg('tmode', tmode, v => { tmode = v; store.set('tmode', tmode); document.body.classList.toggle('pad', tmode === 'pad'); drawCursor(); tip(tmode === 'pad' ? 'Touchpad: kéo 1 ngón để di chuột, chạm để click' : 'Chạm trực tiếp vào điểm cần click') });
 const T = new Map();           // pointerId -> {x,y,sx,sy,t}
 let g = null;                  // cử chỉ hiện tại
 let lastTap = 0, lastTapX = 0, lastTapY = 0, holdBtn = false, lpTimer = 0;
@@ -523,12 +1452,16 @@ $('stage').addEventListener('pointerdown', e => { if (e.pointerType === 'touch')
 document.addEventListener('pointermove', e => { if (e.pointerType === 'touch') touchMove(e) }, {passive:false});
 document.addEventListener('pointerup', e => { if (e.pointerType === 'touch') touchEnd(e) });
 document.addEventListener('pointercancel', e => { if (e.pointerType === 'touch'){ T.delete(e.pointerId); if (!T.size){ if (btns){ btns = 0; sendMouse(0,0,0) } g = null } } });
-document.addEventListener('touchmove', e => { if (!e.target.closest('#xk')) e.preventDefault() }, {passive:false});
+document.addEventListener('touchmove', e => { if (!e.target.closest('#xk,#panel')) e.preventDefault() }, {passive:false});
 
 /* ================= bàn phím vật lý ================= */
 const held = new Set();
-const isUI = e => { const t = e.target; return t && t.id !== 'ki' && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || $('dlg').open) };
+const isUI = e => { const t = e.target; return panelOpen() || keysOpen() || $('dlg').open || $('mdlg').open ||
+  (t && t.id !== 'ki' && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) };
 addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('dlg').open && !$('mdlg').open && (panelOpen() || keysOpen())){
+    e.preventDefault(); closeKeys(); closePanel(); return;
+  }
   if (isUI(e)) return;
   if (e.target.id === 'ki'){   // bàn phím ảo: ký tự/Enter/Backspace xử lý ở ô nhập
     if (e.isComposing || e.keyCode === 229 || e.key === 'Unidentified' || e.key === 'Enter' || e.key === 'Backspace') return;
@@ -593,22 +1526,18 @@ ki.addEventListener('blur', () => setTimeout(() => { if (document.activeElement 
 
 /* hàng phím phụ */
 const XK = [['Esc','esc'],['Tab','tab'],['Ctrl','#ctrl'],['Alt','#alt'],['Shift','#shift'],['Win','#win'],
-  ['←','left'],['↑','up'],['↓','down'],['→','right'],['Del','delete'],['⌫','backspace'],['↵','enter'],
-  ['Home','home'],['End','end'],['PgUp','pageup'],['PgDn','pagedown'],['Ins','insert'],
-  ['F1','f1'],['F2','f2'],['F3','f3'],['F4','f4'],['F5','f5'],['F6','f6'],['F7','f7'],['F8','f8'],
-  ['F9','f9'],['F10','f10'],['F11','f11'],['F12','f12'],['PrtSc','printscreen'],['Pause','pause'],['Menu','menu'],
-  ['Ctrl+Alt+Del','!ctrl+alt+del'],['Ctrl+Shift+Esc','!ctrl+shift+esc'],['Alt+Tab','!alt+tab'],['Alt+F4','!alt+f4'],
-  ['Win+R','!win+r'],['Win+D','!win+d'],['Win+E','!win+e'],['Win+L','!win+l'],['Win+Tab','!win+tab'],
-  ['Ctrl+W','!ctrl+w'],['Ctrl+T','!ctrl+t'],['Ctrl+N','!ctrl+n'],['Ctrl+Tab','!ctrl+tab'],['Ctrl+Shift+T','!ctrl+shift+t'],
-  ['Ctrl+Alt+F1','!ctrl+alt+f1'],['Ctrl+Alt+F2','!ctrl+alt+f2'],['Ctrl+Alt+F7','!ctrl+alt+f7']];
+  ['←','left',1],['↑','up'],['↓','down'],['→','right'],['Del','delete',1],['⌫','backspace'],['↵','enter'],
+  ['Home','home',1],['End','end'],['PgUp','pageup'],['PgDn','pagedown'],['Ins','insert'],
+  ['F1','f1',1],['F2','f2'],['F3','f3'],['F4','f4'],['F5','f5'],['F6','f6'],['F7','f7'],['F8','f8'],
+  ['F9','f9'],['F10','f10'],['F11','f11'],['F12','f12'],['PrtSc','printscreen',1],['Pause','pause'],['Menu','menu']];
 const xk = $('xk');
-for (const [lab, v] of XK){
-  const b = document.createElement('button'); b.className = 'k' + (v[0] === '!' ? ' cmb' : ''); b.textContent = lab; b.dataset.v = v;
+for (const [lab, v, gap] of XK){
+  const b = document.createElement('button'); b.className = 'k' + (gap ? ' gap' : ''); b.textContent = lab; b.dataset.v = v;
+  if (v[0] === '#') b.title = 'Bấm 1 lần: giữ cho phím kế tiếp · bấm 2 lần: khoá';
   b.addEventListener('pointerdown', e => e.preventDefault());           // giữ focus ở ô nhập => bàn phím ảo không bị đóng
   b.addEventListener('click', e => {
     e.preventDefault(); vib(6);
     if (v[0] === '#'){ const m = v.slice(1); mods[m] = (mods[m] + 1) % 3; paintMods() }
-    else if (v[0] === '!'){ send('c ' + v.slice(1)); tip(lab) }
     else key(v);
     if (kbdOpen()) ki.focus({preventScroll:true}); else if (!touchUI) cv.focus();
   });
@@ -618,8 +1547,13 @@ function paintMods(){
   xk.querySelectorAll('.k').forEach(b => { const v = b.dataset.v; if (v[0] !== '#') return; const s = mods[v.slice(1)];
     b.classList.toggle('on', s > 0); b.classList.toggle('lock', s === 2) });
 }
+paintModLabels();
+/* hàng phím phụ trên desktop: bật/tắt */
+function setVk(on){ document.body.classList.toggle('vk', on); $('tVk').checked = on; store.set('vk', on ? '1' : '0'); setTimeout(layout, 0) }
+setVk(store.get('vk', '0') === '1');
+$('tVk').onchange = e => setVk(e.target.checked);
 
-/* thanh dưới */
+/* thanh dưới (mobile) */
 function tapBtn(id, fn){ const b = $(id); b.addEventListener('pointerdown', e => e.preventDefault()); b.addEventListener('click', e => { e.preventDefault(); fn(b) }) }
 tapBtn('mKbd', () => setKbd(!kbdOpen()));
 tapBtn('mL', () => click(1));
@@ -627,35 +1561,142 @@ tapBtn('mR', () => click(2));
 tapBtn('mDrag', b => { holdBtn = !holdBtn; b.classList.toggle('on', holdBtn); btns = holdBtn ? (btns | 1) : (btns & ~1); sendMouse(0,0,0); tip(holdBtn ? 'Đang giữ nút trái – di chuột để kéo' : 'Đã nhả nút trái') });
 tapBtn('mZoom', () => { zoom = 1; applyZoom(); tip('Thu về 1× – chụm 2 ngón để phóng to') });
 tapBtn('mEsc', () => { send('c esc'); vib(6) });
-tapBtn('mWin', () => { send('c win'); vib(6) });
-tapBtn('mMenu', () => { const h = bar.classList.toggle('hide'); $('mMenu').classList.toggle('on', !h) });
-$('stage').addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && !bar.classList.contains('hide')){ bar.classList.add('hide'); $('mMenu').classList.remove('on') } }, true);
+tapBtn('mKeys', () => keysOpen() ? closeKeys() : openKeys());
+tapBtn('mMenu', () => panelOpen() ? closePanel() : openPanel());
+$('chip').addEventListener('click', () => openPanel('gen'));
 
-/* ================= nút toolbar ================= */
-document.querySelectorAll('[data-combo]').forEach(b => b.onclick = () => { send('c ' + b.dataset.combo); tip(b.textContent); refocus() });
-$('bRel').onclick = () => { releaseAll(); holdBtn = false; $('mDrag').classList.remove('on'); for (const k in mods) mods[k] = 0; paintMods(); tip('Đã nhả mọi phím') };
-$('bSnap').onclick = () => { const a = document.createElement('a'); a.href = '/snap?' + Date.now(); a.download = 'kvm-' + new Date().toISOString().replace(/[:.]/g, '-') + '.jpg'; a.click() };
-$('bFull').onclick = async () => {
+/* ================= hành động ================= */
+function doRelease(){ releaseAll(); holdBtn = false; $('mDrag').classList.remove('on'); for (const k in mods) mods[k] = 0; paintMods(); tip('Đã nhả mọi phím và nút chuột') }
+$('qRel').onclick = doRelease;
+
+// ---- Ổ USB ảo (file trong /data, xd-usbdisk) ----
+let usbMode = '', usbBusy = false;
+function paintUsb(st){
+  if (st.exists === false && !st.pool){                 // W105D: chi co USB cam vao box (LUN0)
+    paintExt(st);
+    $('n1').textContent = (st.names || [])[0] ? `Máy đích thấy: ${st.names[0]} · LUN 0` : '';
+    return;
+  }
+  usbMode = st.mode;
+  const exp = st.mode === 'export', loc = st.mode === 'local';
+  const cls = 'dot ' + (exp ? 'ok' : loc ? 'warn' : 'off');
+  $('dDisk2').className = cls;
+  $('uTitle').textContent = st.exists === false ? 'Ổ USB W105D · chưa tạo' : `Ổ USB W105D · ${st.gib} GB exFAT · chiếm thật ${st.used_gib} GB`;
+  $('uDesc').textContent = exp ? 'Đang cắm sang máy đích (ổ W105D-USB). Hãy Eject trên máy đích trước khi rút.'
+    : loc ? `Đang mount trên W105D tại /mnt/usb · đã dùng ${st.local_used}` : 'Không gán cho ai.';
+  paintPool(st);
+  const m = /([\d.]+)\/([\d.]+)/.exec(st.local_used || '');
+  $('uBarW').hidden = !m; if (m) $('uBar').style.width = Math.min(100, m[1] / m[2] * 100) + '%';
+  if (!usbBusy){
+    const b = $('bUsbDisk'); b.disabled = false;
+    b.textContent = exp ? 'Rút về W105D' : 'Cắm sang máy đích'; b.className = 'btn ' + (exp ? 'warn' : 'pri');
+  }
+  paintExt(st);
+  (st.names || []).forEach((n, i) => { const e = $('n' + i); if (e) e.textContent = n ? `Máy đích thấy: W105D ${n} · LUN ${i}` : '' });
+}
+let extBusy = false, extOn = true;
+function paintExt(st){
+  const d = st.ext_dev, plug = st.ext_plugged || [], on = st.ext_conf !== 'off';
+  extOn = on;
+  const desc = x => [x.model || x.dev.replace(/^\/dev\//, ''), x.gib ? x.gib + ' GB' : ''].filter(Boolean).join(' · ');
+  $('dExt').className = 'dot ' + (d ? 'ok' : plug.length ? 'warn' : 'off');
+  $('eTitle').textContent = d ? desc(d) : plug.length ? desc(plug[0]) : 'Không có USB nào cắm vào W105D';
+  $('eDesc').textContent = d ? 'Đang cắm sang máy đích. Hãy Eject trên máy đích trước khi gỡ.'
+    : !on ? (plug.length ? 'Đã gỡ khỏi máy đích, máy đích không thấy ổ này.' : 'Tự gắn đang tắt.')
+    : plug.length ? 'Đang chờ gắn…' : 'Cắm USB vào W105D, ổ sẽ tự chuyển sang máy đích.';
+  if (!extBusy){
+    const b = $('bExt'); b.disabled = false;
+    b.textContent = on ? (d ? 'Gỡ khỏi máy đích' : 'Tắt tự gắn') : 'Cắm sang máy đích';
+    b.className = 'btn ' + (on ? 'warn' : 'pri');
+  }
+}
+$('bExt').onclick = () => {
+  const op = extOn ? 'ext_off' : 'ext_on';
+  if (op === 'ext_off' && $('dExt').classList.contains('ok') && !confirm('Gỡ USB ngoài khỏi máy đích?\nHãy "Eject / Safely Remove" trên máy đích trước, nếu không có thể mất dữ liệu đang ghi.')) return;
+  const b = $('bExt'); extBusy = true; b.disabled = true; b.textContent = op === 'ext_on' ? 'Đang cắm…' : 'Đang gỡ…';
+  fetch('/usb', {method: 'POST', body: JSON.stringify({op})}).then(r => r.json())
+    .then(st => { extBusy = false; paintUsb(st); tip(st.result ? st.result.out : '?') })
+    .catch(e => { extBusy = false; tip('Lỗi: ' + e); pollUsb() });
+};
+function pollUsb(){ fetch('/usb').then(r => r.json()).then(paintUsb).catch(() => {}) }
+pollUsb(); setInterval(pollUsb, 5000);
+// ---- thanh kho chung: [Dữ liệu][Ổ USB (con trượt, 1 GB/nấc)][Trống] ----
+const pool = {total:0, other:0, max:16, cur:0, val:16, touched:false};
+function paintPool(st){
+  const P = st.pool; if (!P) return;
+  pool.total = P.total_gib; pool.cur = Math.round(st.gib || 0);
+  pool.other = Math.max(0, P.total_gib - P.free_gib - (st.used_gib || 0));              // ISO + thứ khác (không tính ổ USB)
+  pool.max = Math.max(1, Math.floor(P.free_gib + (st.used_gib || 0) - 1), pool.cur);   // chừa 1 GB
+  if (!pool.touched && !usbBusy) pool.val = pool.cur || 16;
+  const r = $('uRange'); r.max = pool.max; r.value = pool.val;
+  r.style.left = (pool.other / pool.total * 100) + '%'; r.style.width = (pool.max / pool.total * 100) + '%';
+  $('segData').style.width = (pool.other / pool.total * 100) + '%';
+  $('uPool').textContent = `Kho chung /data ${P.total_gib} GB · ảnh ISO ${P.iso_gib} GB · ổ USB hiện tại ${st.gib} GB (chiếm thật ${st.used_gib} GB)`;
+  paintPoolVal();
+}
+function paintPoolVal(){
+  const v = pool.val, T = pool.total || 1;
+  $('segUsb').style.left = (pool.other / T * 100) + '%'; $('segUsb').style.width = (v / T * 100) + '%';
+  $('uVal').textContent = v + ' GB';
+  $('lData').textContent = pool.other.toFixed(1) + ' GB'; $('lUsb').textContent = v + ' GB';
+  $('lFree').textContent = Math.max(0, T - pool.other - v).toFixed(1) + ' GB';
+  document.querySelectorAll('#uPoolBar ~ .frow .mchip').forEach(b => { b.classList.toggle('on', +b.dataset.g === v); b.disabled = +b.dataset.g > pool.max });
+  if (!usbBusy) $('bUsbSize').disabled = v === pool.cur;
+}
+$('uRange').addEventListener('input', e => { pool.val = Math.max(1, +e.target.value); pool.touched = true; paintPoolVal() });
+document.querySelectorAll('#uPoolBar ~ .frow .mchip').forEach(b => b.onclick = () => { pool.val = Math.min(+b.dataset.g, pool.max); pool.touched = true; $('uRange').value = pool.val; paintPoolVal() });
+$('bUsbSize').onclick = () => {
+  const g = pool.val, pre = $('uPre').checked;
+  if (!(g >= 1)) return;
+  if (!confirm(`Tạo lại ổ USB ${g} GB${pre ? ' (cấp phát trước)' : ''}?\nTOÀN BỘ dữ liệu trên ổ sẽ bị xoá.\nNếu ổ đang cắm sang máy đích, hãy "Eject" bên máy đích trước.`)) return;
+  const b = $('bUsbSize'), lbl = b.textContent; usbBusy = true; b.disabled = true; b.textContent = 'Đang tạo ổ…';
+  fetch('/usb', {method:'POST', body: JSON.stringify({op:'resize', gib:g, prealloc:pre})}).then(r => r.json())
+    .then(st => { usbBusy = false; b.textContent = lbl; pool.touched = false; paintUsb(st);
+      tip(st.result && st.result.rc === 0 ? `Đã tạo ổ USB ${g} GB` : 'Lỗi: ' + (st.result ? st.result.out : '?')) })
+    .catch(e => { usbBusy = false; b.textContent = lbl; tip('Lỗi: ' + e); pollUsb() });
+};
+$('bUsbDisk').onclick = () => {
+  const op = usbMode === 'export' ? 'local' : 'export';
+  if (op === 'local' && !confirm('Rút ổ USB khỏi máy đích?\nHãy "Eject / Safely Remove" trên máy đích trước, nếu không có thể mất dữ liệu đang ghi.')) return;
+  const b = $('bUsbDisk'); usbBusy = true; b.disabled = true; b.textContent = op === 'export' ? 'Đang cắm…' : 'Đang rút…';
+  fetch('/usb', {method: 'POST', body: JSON.stringify({op})}).then(r => r.json())
+    .then(st => { usbBusy = false; paintUsb(st); tip(st.result && st.result.rc === 0 ? (op === 'export' ? 'Đã cắm ổ USB sang máy đích' : 'Đã rút ổ USB về W105D') : 'Lỗi: ' + (st.result ? st.result.out : '?')) })
+    .catch(e => { usbBusy = false; tip('Lỗi: ' + e); pollUsb() });
+};
+
+function snap(){ const a = document.createElement('a'); a.href = '/snap?' + Date.now(); a.download = 'kvm-' + new Date().toISOString().replace(/[:.]/g, '-') + '.jpg'; a.click(); tip('Đã lưu ảnh màn hình') }
+$('bSnap').onclick = () => { snap(); refocus() };
+$('qSnap').onclick = snap;
+async function toggleFull(){
   try{
     const el = document.documentElement;
     if (!document.fullscreenElement && !document.webkitFullscreenElement){
       await (el.requestFullscreen ? el.requestFullscreen({navigationUI:'hide'}) : el.webkitRequestFullscreen());
       if (navigator.keyboard && navigator.keyboard.lock){
         navigator.keyboard.lock().then(() => tip('Đã bắt toàn bộ phím (Win, Alt+Tab, Ctrl+W…) – giữ Esc để thoát')).catch(() => {});
-      } else if (!touchUI) tip(window.isSecureContext ? 'Trình duyệt không hỗ trợ bắt phím hệ thống – dùng hàng phím bên dưới'
-                                                      : 'Win/Alt+Tab/Ctrl+W: dùng hàng phím bên dưới');
+      } else if (!touchUI) tip(window.isSecureContext ? 'Trình duyệt không hỗ trợ bắt phím hệ thống – dùng menu Phím tắt'
+                                                      : 'Win/Alt+Tab/Ctrl+W: dùng menu Phím tắt (cần HTTPS để bắt phím)');
       if (touchUI && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
     } else { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()) }
   }catch(_){}
-  refocus();
-};
+}
+$('bFull').onclick = async () => { await toggleFull(); refocus() };
+$('qFull').onclick = async () => { closePanel(); await toggleFull() };
 document.addEventListener('fullscreenchange', () => { $('bFull').classList.toggle('on', !!document.fullscreenElement); setTimeout(layout, 80) });
+
 const dlg = $('dlg');
-$('bPaste').onclick = async () => {
-  releaseAll(); dlg.showModal();
+function chkPaste(){
+  const t = $('ptxt').value, bad = [...t].filter(c => c !== '\n' && c !== '\r' && (c.charCodeAt(0) < 32 || c.charCodeAt(0) > 126)).length;
+  const n = t.length, sec = Math.ceil(n / 20);
+  $('pWarn').textContent = (bad ? `${bad} ký tự không phải ASCII sẽ bị bỏ qua. ` : '') + (n > 200 ? `Mất khoảng ${sec >= 60 ? Math.round(sec / 60) + ' phút' : sec + ' giây'} để gõ xong.` : '');
+}
+async function openPaste(){
+  closePanel(); releaseAll(); dlg.showModal();
   try{ if (!$('ptxt').value && navigator.clipboard && navigator.clipboard.readText) $('ptxt').value = await navigator.clipboard.readText() }catch(_){}
-  $('ptxt').focus();
-};
+  chkPaste(); $('ptxt').focus();
+}
+$('bPaste').onclick = openPaste; $('qPaste').onclick = openPaste;
+$('ptxt').addEventListener('input', chkPaste);
 $('pCancel').onclick = () => dlg.close();
 $('pSend').onclick = () => {
   const t = $('ptxt').value.replace(/\r\n?/g, '\n');
@@ -665,10 +1706,433 @@ $('pSend').onclick = () => {
 $('ptxt').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); $('pSend').click() } });
 dlg.addEventListener('close', refocus);
 
+/* ================= âm thanh ================= */
+const MU = new Float32Array(256);
+for (let i = 0; i < 256; i++){ const u = ~i & 0xff; let t = ((u & 0x0f) << 3) + 0x84; t <<= (u & 0x70) >> 4; MU[i] = ((u & 0x80) ? (0x84 - t) : (t - 0x84)) / 32768 }
+const au = {on:false, ws:null, ctx:null, gain:null, next:0, rate:24000, ch:2, retry:0};
+let vol = +store.get('vol', '100');
+$('aVol').value = vol;
+function paintAudio(){
+  const ic = au.on ? '#i-vol' : '#i-mute';
+  $('bAudio').querySelector('use').setAttribute('href', ic); $('qAudio').querySelector('use').setAttribute('href', ic);
+  $('bAudio').classList.toggle('on', au.on); $('qAudio').classList.toggle('pri', au.on); $('tAudio').checked = au.on;
+  $('bAudio').title = au.on ? 'Đang nghe âm thanh máy đích – bấm để tắt' : 'Nghe âm thanh máy đích (HDMI)';
+}
+function audioConnect(){
+  const w = au.ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/audio');
+  w.binaryType = 'arraybuffer';
+  w.onmessage = e => {
+    if (typeof e.data === 'string'){
+      let d; try{ d = JSON.parse(e.data) }catch(_){ return }
+      if (d.t === 'a'){ au.rate = d.rate; au.ch = d.ch; $('aInfo').textContent = `Đang nghe: µ-law ${d.rate / 1000} kHz ${d.ch === 2 ? 'stereo' : 'mono'}.` }
+      else if (d.t === 'e') $('aInfo').textContent = 'Lỗi âm thanh: ' + d.err;
+      return;
+    }
+    const ctx = au.ctx; if (!ctx) return;
+    const u = new Uint8Array(e.data), ch = au.ch, n = (u.length / ch) | 0; if (!n) return;
+    const buf = ctx.createBuffer(ch, n, au.rate);
+    for (let c = 0; c < ch; c++){ const o = buf.getChannelData(c); for (let i = 0; i < n; i++) o[i] = MU[u[i * ch + c]] }
+    const now = ctx.currentTime;
+    if (au.next < now + 0.02) au.next = now + 0.08;            // thiếu dữ liệu: đệm lại 80 ms
+    if (au.next > now + 0.4) return;                            // trễ quá: bỏ khung để đuổi kịp
+    const src = ctx.createBufferSource(); src.buffer = buf; src.connect(au.gain); src.start(au.next); au.next += n / au.rate;
+  };
+  w.onclose = () => { if (au.on && au.ws === w) au.retry = setTimeout(audioConnect, 1500) };
+}
+function setAudio(on){
+  if (on === au.on) return; au.on = on; clearTimeout(au.retry);
+  if (on){
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      au.ctx = new AC({latencyHint:'interactive'}); au.gain = au.ctx.createGain(); au.gain.gain.value = vol / 100; au.gain.connect(au.ctx.destination);
+      au.ctx.resume && au.ctx.resume(); au.next = 0; audioConnect(); tip('Bật âm thanh máy đích');
+    }catch(err){ au.on = false; tip('Trình duyệt không phát được âm thanh: ' + err) }
+  } else {
+    const w = au.ws; au.ws = null; if (w) w.close();
+    if (au.ctx){ au.ctx.close(); au.ctx = null } tip('Tắt âm thanh'); $('aInfo').textContent = 'Đã tắt.';
+  }
+  paintAudio();
+}
+$('bAudio').onclick = () => { setAudio(!au.on); refocus() };
+$('qAudio').onclick = () => setAudio(!au.on);
+$('tAudio').onchange = e => setAudio(e.target.checked);
+$('aVol').oninput = e => { vol = +e.target.value; store.set('vol', vol); if (au.gain) au.gain.gain.value = vol / 100 };
+paintAudio();
+
+/* ================= tiện ích ================= */
+const fmtB = b => b >= 1 << 30 ? (b / 2 ** 30).toFixed(1) + ' GB' : b >= 1 << 20 ? (b / 2 ** 20).toFixed(0) + ' MB' : Math.round(b / 1024) + ' KB';
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let authT = 0;
+function authCheck(){                       // token đổi / W105D cắm lại nguồn -> về trang đăng nhập
+  if (Date.now() - authT < 5000) return; authT = Date.now();
+  fetch('/auth/state', {cache:'no-store'}).then(r => r.json()).then(d => { if (!d.authed) location.replace('/login') }).catch(() => {});
+}
+async function api(path, body){
+  const r = await fetch(path, body === undefined ? {} : {method:'POST', body:JSON.stringify(body)});
+  if (r.status === 401){ location.replace('/login'); throw new Error('cần đăng nhập') }
+  let d = null; try{ d = await r.json() }catch(_){}
+  if (!r.ok && !(d && (d.err || d.out))) throw new Error('HTTP ' + r.status);
+  return d;
+}
+function panelTick(){
+  if (!panelOpen()) return;
+  if (curTab === 'sto') pollIso();
+  else if (curTab === 'box') pollSys();
+  else if (curTab === 'clip'){ pollClip(); $('cDot').hidden = true }
+}
+setInterval(() => { if (panelOpen() && (curTab === 'sto' || curTab === 'box' || curTab === 'clip')) panelTick(); else if (isoBusy()) pollIso() }, 2000);
+
+/* ================= ISO / CD ảo ================= */
+let iso = null, xhrUp = null;
+const isoBusy = () => iso && ((iso.dl && iso.dl.state === 'running') || xhrUp);
+function pollIso(){ }   /* W105D: khong co ISO ao */
+function paintIso(d){
+  if (!d) return; iso = d;
+  const m = d.mounted;
+  $('dIso').className = 'dot ' + (m ? 'ok' : 'off');
+  $('iTitle').textContent = m ? m.name : 'Trống';
+  $('iDesc').textContent = !d.lun ? 'Gadget chưa có LUN2 – cần khởi động lại dịch vụ xd-ffs-hid.'
+    : m ? `Đang cắm sang máy đích dạng ${m.mode === 'cdrom' ? 'ổ CD/DVD' : 'ổ USB'} (chỉ đọc).` : 'Chọn một ảnh bên dưới để cắm sang máy đích.';
+  $('bIsoEject').hidden = !m;
+  $('iDir').textContent = d.dir;
+  $('iFree').textContent = `Còn trống ${fmtB(d.free)} / ${fmtB(d.total)} trên /data.`;
+  const L = $('isoList');
+  L.innerHTML = d.files.length ? '' : '<div class="empty">Chưa có ảnh nào.</div>';
+  for (const f of d.files){
+    const cur = m && m.name === f.name, row = document.createElement('div');
+    row.className = 'li' + (cur ? ' cur' : '');
+    row.innerHTML = `<svg class="i"><use href="#i-disc"/></svg><div class="nm"><b title="${esc(f.name)}">${esc(f.name)}</b><span>${fmtB(f.size)}${cur ? ' · đang cắm' : ''}</span></div>`;
+    const mk = (lab, cls, title, fn) => { const b = document.createElement('button'); b.className = 'sbtn ' + cls; b.innerHTML = lab; b.title = title; b.onclick = fn; row.appendChild(b) };
+    if (!cur){
+      mk('CD', 'pri', 'Cắm dạng ổ CD/DVD', () => isoOp({op:'mount', name:f.name, mode:'cdrom'}, `Đã cắm ${f.name} (CD)`));
+      mk('USB', '', 'Cắm dạng ổ USB chỉ đọc', () => isoOp({op:'mount', name:f.name, mode:'disk'}, `Đã cắm ${f.name} (USB)`));
+      mk('<svg class="i"><use href="#i-trash"/></svg>', 'del', 'Xoá file', () => { if (confirm(`Xoá ${f.name}?`)) isoOp({op:'delete', name:f.name}, 'Đã xoá') });
+    } else mk('Gỡ', '', 'Gỡ khỏi máy đích', () => isoOp({op:'eject'}, 'Đã gỡ ảnh'));
+    L.appendChild(row);
+  }
+  const g = d.dl || {}, run = g.state === 'running';
+  $('dlProg').hidden = !(run || g.state === 'error');
+  if (run){ $('dlTxt').textContent = `Đang tải ${g.name}: ${fmtB(g.got)}${g.total ? ' / ' + fmtB(g.total) : ''}`; $('dlBar').style.width = g.total ? (g.got / g.total * 100) + '%' : '0' }
+  else if (g.state === 'error'){ $('dlTxt').textContent = `Tải ${g.name} lỗi: ${g.err}`; $('dlBar').style.width = '0' }
+  $('dlCancel').hidden = !run; $('bIsoFetch').disabled = run;
+}
+async function isoOp(body, ok){
+  $('iErr').textContent = '';
+  if (body.op === 'mount' && iso && iso.lun_mode !== body.mode &&
+      !confirm(`Đổi ổ ảo sang dạng ${body.mode === 'cdrom' ? 'CD/DVD' : 'ổ USB'} cần cắm lại USB (~3 giây).\nBàn phím/chuột, ổ USB ảo và USB ngoài cũng ngắt tạm – đảm bảo máy đích không đang ghi dữ liệu. Tiếp tục?`)) return;
+  if (body.op === 'mount') tip('Đang cắm…');
+  try{ const d = await api('/iso', body); paintIso(d); if (d && d.err) $('iErr').textContent = d.err; else tip(ok) }
+  catch(e){ $('iErr').textContent = 'Lỗi: ' + e.message }
+}
+$('bIsoEject').onclick = () => isoOp({op:'eject'}, 'Đã gỡ ảnh');
+$('bIsoFetch').onclick = () => { const u = $('isoUrl').value.trim(); if (!u) return $('isoUrl').focus(); isoOp({op:'fetch', url:u}, 'Bắt đầu tải'); $('isoUrl').value = '' };
+$('isoUrl').addEventListener('keydown', e => { if (e.key === 'Enter') $('bIsoFetch').click() });
+$('dlCancel').onclick = () => isoOp({op:'cancel'}, 'Đã huỷ tải');
+$('bIsoUp').onclick = () => $('isoFile').click();
+$('isoFile').onchange = e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (!/\.(iso|img)$/i.test(f.name)) return ($('iErr').textContent = 'Chỉ nhận file .iso hoặc .img');
+  if (iso && f.size > iso.free - 256 * 2 ** 20) return ($('iErr').textContent = `Không đủ chỗ: cần ${fmtB(f.size)}, còn ${fmtB(iso.free)}`);
+  const x = xhrUp = new XMLHttpRequest(), t0 = performance.now();
+  x.open('PUT', '/iso/upload?name=' + encodeURIComponent(f.name));
+  $('upProg').hidden = false; $('bIsoUp').disabled = true; $('iErr').textContent = '';
+  x.upload.onprogress = ev => {
+    const sp = ev.loaded / Math.max(1, (performance.now() - t0) / 1000);
+    $('upTxt').textContent = `Đang tải lên ${f.name}: ${fmtB(ev.loaded)} / ${fmtB(f.size)} · ${(sp / 2 ** 20).toFixed(1)} MB/s`;
+    $('upBar').style.width = (ev.loaded / f.size * 100) + '%';
+  };
+  const done = msg => { xhrUp = null; $('upProg').hidden = true; $('bIsoUp').disabled = false; if (msg) $('iErr').textContent = msg; pollIso() };
+  x.onload = () => { let d = null; try{ d = JSON.parse(x.responseText) }catch(_){}
+    if (x.status === 200){ tip('Đã tải lên ' + f.name); done() } else done('Tải lên lỗi: ' + ((d && d.err) || x.status)) };
+  x.onerror = () => done('Tải lên bị ngắt'); x.onabort = () => done('Đã huỷ tải lên');
+  x.send(f);
+};
+$('upCancel').onclick = () => { if (xhrUp) xhrUp.abort() };
+pollIso();
+
+/* ================= sức khoẻ W105D ================= */
+const dur = s => { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + ' ngày ' : '') + h + ' giờ ' + m + ' phút' };
+function pollSys(){ api('/sys').then(paintSys).catch(() => {}); gLoad() }
+/* ---- bản gốc rootfs (phân vùng backup, xd-golden) ---- */
+let gLast = -Infinity;
+function gLoad(force){
+  if (!force && performance.now() - gLast < 20000) return; gLast = performance.now();
+  return;   /* W105D: khong co ban goc */
+}
+function gPaint(d){
+  if (!d || d.err){ $('gCur').textContent = 'lỗi: ' + (d && d.err || '?'); return }
+  const fmt = g => g ? `${g.saved} · ${Math.round(g.size / 1048576)} MB` : 'chưa có';
+  $('gCur').textContent = fmt(d.golden); $('gPrev').textContent = fmt(d.prev);
+  $('gFails').textContent = `${d.fails} / ${d.auto_after} (tới ${d.auto_after} thì tự khôi phục)`;
+  $('gFree').textContent = `trống ${d.free_mb} / ${d.total_mb} MB`;
+  $('gRestore').disabled = !d.golden && !d.prev;
+  $('gReq').hidden = !d.request; $('gCancel').hidden = !d.request;
+  $('gFresh').checked = !!d.fresh; $('gMaint').hidden = !d.fresh;
+  if (d.fresh || d.running_fresh) $('gAdv').open = true;        // đang dùng thì mở sẵn để thấy
+  $('gMode').textContent = d.running_fresh ? `SẠCH (rootfs chỉ đọc)${d.upper_mb ? ` · lớp RAM ${d.upper_mb[0]}/${d.upper_mb[1]} MB` : ''}` : 'thường (ghi thẳng rootfs)'
+    + (d.maint_once ? ' · lần tới: bảo trì' : '');
+  if (d.request) $('gReq').textContent = `Đang chờ: ${d.request === 'save' ? 'lưu bản gốc' : 'khôi phục bản gốc'} ở lần khởi động tới.`;
+}
+async function gPost(body, label){
+  tip(label + '…');
+  try{
+    const r = await fetch('/golden', {method:'POST', body: JSON.stringify(body)}); const d = await r.json().catch(() => ({}));
+    tip(r.ok ? (d.out || label + ' xong') : 'Lỗi: ' + (d.err || d.out || r.status));
+    return r.ok;
+  }catch(e){ tip('Lỗi: ' + e.message); return false }
+  finally{ gLoad(true) }
+}
+$('gSave').onclick = async () => {
+  const pw = $('gPw').value; if (!pw){ tip('Nhập mật khẩu'); $('gPw').focus(); return }
+  if (!confirm('Lưu Linux hiện tại làm BẢN GỐC?\nW105D sẽ khởi động lại và chụp toàn bộ rootfs (KVM mất khoảng 2–3 phút).\nBản gốc cũ chuyển thành "bản trước".')) return;
+  $('gSave').disabled = true;
+  if (await gPost({op:'save', password:pw}, 'Đang chuẩn bị lưu bản gốc (ghi 0 chỗ trống, có thể mất ~1 phút)')) $('gPw').value = '';
+  $('gSave').disabled = false;
+};
+$('gRestore').onclick = () => {
+  if (!confirm('KHÔI PHỤC Linux về bản gốc?\nMọi thay đổi sau lần lưu bản gốc sẽ mất. W105D khởi động lại (KVM mất khoảng 2–3 phút).')) return;
+  gPost({op:'restore'}, 'Đang đặt yêu cầu khôi phục');
+};
+$('gCancel').onclick = () => gPost({op:'cancel'}, 'Đang huỷ yêu cầu');
+$('gFresh').onchange = e => {
+  const on = e.target.checked;
+  if (!confirm(on ? 'Bật "khởi động lại là sạch"?\nTừ lần khởi động tới, mọi thay đổi trên Linux (trừ Tailscale, WiFi, cài đặt KVM, /data) sẽ mất khi khởi động lại.'
+                  : 'Tắt chế độ sạch? Từ lần khởi động tới, thay đổi trên Linux sẽ được giữ lại.')){ e.target.checked = !on; return }
+  const pw = $('gPw2').value;
+  if (!pw){ e.target.checked = !on; tip('Nhập mật khẩu ở ô "Mật khẩu" trong mục Nâng cao'); $('gPw2').focus(); return }
+  gPost({op:'fresh', on, password:pw}, on ? 'Bật chế độ sạch' : 'Tắt chế độ sạch').then(ok => { if (ok) $('gPw2').value = ''; else gLoad(true) });
+};
+$('gMaint').onclick = () => {
+  if (!confirm('Khởi động lại ở CHẾ ĐỘ BẢO TRÌ 1 lần?\nLần này thay đổi trên Linux sẽ được giữ (để sửa ROM); sửa xong hãy "Lưu làm bản gốc". Lần khởi động sau lại sạch.')) return;
+  const pw = $('gPw2').value;
+  if (!pw){ tip('Nhập mật khẩu ở ô "Mật khẩu" trong mục Nâng cao'); $('gPw2').focus(); return }
+  gPost({op:'maint', password:pw}, 'Đang khởi động bảo trì').then(ok => { if (ok) $('gPw2').value = '' });
+};
+function paintSys(d){
+  if (!d) return;
+  $('hHost').textContent = d.host ? '· ' + d.host : '';
+  $('hTemp').textContent = d.temp === null ? '–' : d.temp + ' °C';
+  $('hTemp').style.color = d.temp >= 80 ? 'var(--bad)' : d.temp >= 70 ? 'var(--warn)' : '';
+  $('hLoad').textContent = (d.load || []).join(' / ');
+  $('hMem').textContent = d.mem && d.mem.total ? `${fmtB(d.mem.avail)} / ${fmtB(d.mem.total)}` : '–';
+  $('hUp').textContent = dur(d.uptime || 0);
+  const dk = x => x ? `trống ${fmtB(x.free)} / ${fmtB(x.total)}` : 'không có';
+  $('hRoot').textContent = dk(d.disk && d.disk.root); $('hData').textContent = dk(d.disk && d.disk.data);
+  $('hUdc').textContent = (UDC_TXT[d.udc] || d.udc) + (d.speed && d.speed !== 'UNKNOWN' ? ' · ' + d.speed : '');
+  $('hCap').textContent = d.cap ? (d.cap.err ? 'lỗi: ' + d.cap.err : `${d.cap.mode ? d.cap.mode.join('×').replace(/×(\d+)$/, ' @$1') : '?'} · ${d.cap.fps} fps`) : '–';
+  $('hAud').textContent = d.audio ? d.audio.listeners + (d.audio.err ? ' · lỗi: ' + d.audio.err : '') : '–';
+  $('hSvc').innerHTML = Object.entries(d.svc || {}).map(([k, v]) =>
+    `<span title="${esc(k)}: ${esc(v)}"><i class="dot ${v === 'active' ? 'ok' : v === 'activating' ? 'warn' : ''}"></i>${esc(k)}</span>`).join('');
+}
+async function sysOp(op, label, ask){
+  if (ask && !confirm(ask)) return;
+  tip(label + '…');
+  try{ const r = await api('/sys', {op}); tip(r && r.rc === 0 ? (r.out || label + ' xong') : 'Lỗi: ' + (r && r.out)) }catch(e){ tip('Lỗi: ' + e.message) }
+  setTimeout(pollSys, 800);
+}
+$('aReplug').onclick = () => sysOp('replug', 'Đang cắm lại USB', 'Ngắt USB với máy đích ~2 giây rồi cắm lại?\nỔ USB và ổ CD ảo cũng bị ngắt tạm – đảm bảo máy đích không đang ghi dữ liệu.');
+$('aCap').onclick = capReset;
+$('aHid').onclick = () => sysOp('hidfwd', 'Khởi động lại hidfwd');
+$('aRel').onclick = doRelease;
+
+/* ================= macro ================= */
+let macros = [], macEdit = -1, macRun = null;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function loadMacros(){ api('/macros').then(m => { macros = Array.isArray(m) ? m : []; paintMacros() }).catch(() => {}) }
+function paintMacros(){
+  const L = $('macList'); L.innerHTML = macros.length ? '' : '<div class="empty">Chưa có macro. Bấm “+ Macro mới”.</div>';
+  macros.forEach((m, i) => {
+    const row = document.createElement('div'); row.className = 'li';
+    const steps = m.script.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
+    row.innerHTML = `<div class="nm"><b>${esc(m.name)}</b><span>${steps} bước</span></div>`;
+    const b1 = document.createElement('button'); b1.className = 'sbtn pri'; b1.innerHTML = '<svg class="i"><use href="#i-play"/></svg>Chạy'; b1.onclick = () => runMacro(m);
+    const b2 = document.createElement('button'); b2.className = 'sbtn'; b2.title = 'Sửa'; b2.innerHTML = '<svg class="i"><use href="#i-edit"/></svg>'; b2.onclick = () => editMacro(i);
+    row.append(b1, b2); L.appendChild(row);
+  });
+  const K = $('kmac'); K.innerHTML = '';
+  for (const m of macros){
+    const b = document.createElement('button'); b.className = 'mchip'; b.textContent = '▶ ' + m.name; b.title = 'Chạy macro ' + m.name;
+    b.onclick = () => { closeKeys(); runMacro(m) };
+    K.appendChild(b);
+  }
+}
+function parseMacro(script){
+  const steps = [];
+  script.split('\n').forEach((raw, n) => {
+    const l = raw.replace(/\s+$/, ''), t = l.trim();
+    if (!t || t.startsWith('#')) return;
+    const sp = t.indexOf(' '), cmd = (sp < 0 ? t : t.slice(0, sp)).toLowerCase(), arg = sp < 0 ? '' : t.slice(sp + 1);
+    if (cmd === 'text') steps.push(['text', l.replace(/^\s*text ?/i, '')]);
+    else if (cmd === 'wait'){ const ms = parseInt(arg, 10); if (!(ms >= 0 && ms <= 600000)) throw new Error(`Dòng ${n + 1}: wait cần số ms (0–600000)`); steps.push(['wait', ms]) }
+    else if (cmd === 'key'){ if (!arg) throw new Error(`Dòng ${n + 1}: key cần tên phím`); for (const k of arg.split(/\s+/)) steps.push(['combo', k.toLowerCase()]) }
+    else if (cmd === 'combo') steps.push(['combo', arg.toLowerCase().replace(/\s+/g, '')]);
+    else if (cmd === 'click') steps.push(['click', {left:1, right:2, middle:4}[(arg || 'left').toLowerCase()] || 1]);
+    else if (/^[a-z0-9+\-=\[\];',.\/`\\]+$/i.test(t)) steps.push(['combo', t.toLowerCase()]);
+    else throw new Error(`Dòng ${n + 1}: không hiểu “${t}”`);
+  });
+  return steps;
+}
+async function runMacro(m){
+  let steps; try{ steps = parseMacro(m.script) }catch(e){ tip(e.message); return }
+  if (macRun) macRun.stop = true;
+  const me = macRun = {stop:false}; $('bMacStop').hidden = false;
+  releaseAll(); tip('▶ ' + m.name);
+  for (const [k, v] of steps){
+    if (me.stop || !online) break;
+    if (k === 'text'){ typeText(v); await sleep(v.length * 45 + 60) }      // chờ hidfwd gõ xong (~40 ms/ký tự)
+    else if (k === 'combo'){ send('c ' + v); await sleep(120) }
+    else if (k === 'click'){ click(v); await sleep(120) }
+    else if (k === 'wait') await sleep(v);
+  }
+  if (macRun === me){ macRun = null; $('bMacStop').hidden = true; tip(me.stop ? 'Đã dừng macro' : 'Xong: ' + m.name) }
+}
+$('bMacStop').onclick = () => { if (macRun) macRun.stop = true };
+const mdlg = $('mdlg');
+function editMacro(i){
+  macEdit = i; const m = i >= 0 ? macros[i] : {name:'', script:'# Ví dụ: mở Notepad và gõ chữ\nwin+r\nwait 600\ntext notepad\nkey enter\nwait 1200\ntext Xin chao tu W105D\n'};
+  $('mTitle').textContent = i >= 0 ? 'Sửa macro' : 'Macro mới'; $('mName').value = m.name; $('mScript').value = m.script;
+  $('mDel').hidden = i < 0; $('mErr').textContent = ''; closePanel(); releaseAll(); mdlg.showModal(); $('mName').focus();
+}
+$('bMacNew').onclick = () => editMacro(-1);
+$('mCancel').onclick = () => mdlg.close();
+async function saveMacros(list){ const r = await api('/macros', list); if (!Array.isArray(r)) throw new Error((r && r.err) || 'lỗi lưu'); macros = r; paintMacros() }
+$('mSave').onclick = async () => {
+  const name = $('mName').value.trim(), script = $('mScript').value;
+  if (!name){ $('mErr').textContent = 'Cần đặt tên'; return }
+  try{ parseMacro(script) }catch(e){ $('mErr').textContent = e.message; return }
+  const list = macros.slice(); if (macEdit >= 0) list[macEdit] = {name, script}; else list.push({name, script});
+  try{ await saveMacros(list); mdlg.close(); tip('Đã lưu macro'); openPanel('mac') }catch(e){ $('mErr').textContent = e.message }
+};
+$('mDel').onclick = async () => {
+  if (macEdit < 0 || !confirm('Xoá macro này?')) return;
+  const list = macros.slice(); list.splice(macEdit, 1);
+  try{ await saveMacros(list); mdlg.close(); tip('Đã xoá macro'); openPanel('mac') }catch(e){ $('mErr').textContent = e.message }
+};
+$('mTry').onclick = () => { let st; try{ st = parseMacro($('mScript').value) }catch(e){ $('mErr').textContent = e.message; return }
+  mdlg.close(); runMacro({name: $('mName').value || 'thử', script: $('mScript').value}) };
+mdlg.addEventListener('close', refocus);
+loadMacros();
+
 /* ================= khởi động ================= */
 const coarse = matchMedia('(pointer:coarse)').matches && !matchMedia('(pointer:fine)').matches;
 setTouchUI(coarse || (navigator.maxTouchPoints > 0 && Math.min(screen.width, screen.height) < 820));
 if (!touchUI) showBar();
 connect(); if (!touchUI) cv.focus();
 layout();
+
+/* ================= clipboard (agent trên máy đích) ================= */
+let clip = null, clipSeq = null, agOn = 0, pushWait = null;
+const OSN = {windows:'Win', linux:'Linux', android:'Android', ios:'iOS', web:'Web'};
+const ago = s => s < 5 ? 'đang chạy' : s < 60 ? `mất kết nối ${s} giây` : s < 3600 ? `mất kết nối ${Math.round(s / 60)} phút` : `mất kết nối ${Math.round(s / 3600)} giờ`;
+const hhmm = ts => new Date(ts * 1000).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+const oneLine = t => t.replace(/\s+/g, ' ').trim();
+function pollClip(){ return api('/clip').then(d => { paintClip(d); return d }).catch(() => null) }
+function copyLocal(t){
+  if (navigator.clipboard && window.isSecureContext){
+    return navigator.clipboard.writeText(t).then(() => true, () => copyExec(t));
+  }
+  return Promise.resolve(copyExec(t));
+}
+function copyExec(t){
+  const e = document.createElement('textarea'); e.value = t; e.setAttribute('readonly', ''); e.style.cssText = 'position:fixed;left:-9999px;top:0';
+  document.body.appendChild(e); e.select(); e.setSelectionRange(0, t.length);
+  let ok = false; try{ ok = document.execCommand('copy') }catch(_){}
+  e.remove(); return ok;
+}
+function paintClip(d){
+  if (!d) return; clip = d;
+  const L = $('agList'); L.innerHTML = d.agents.length ? '' : '<div class="empty">Chưa có agent nào kết nối.</div>';
+  for (const a of d.agents){
+    const row = document.createElement('div'); row.className = 'li';
+    const who = esc(a.host || a.id) + (a.user ? ` <span style="display:inline;font-size:11px;color:var(--mut)">(${esc(a.user)})</span>` : '');
+    row.innerHTML = `<span class="dot ${a.online ? 'ok' : 'off'}"></span><div class="nm"><b>${who}</b><span>${esc(a.ip)} · ${ago(a.ago)}${a.err ? ' · ⚠ ' + esc(a.err) : ''}</span></div><span class="os">${esc(OSN[a.os] || a.os)}</span>`;
+    const b = document.createElement('button'); b.className = 'sbtn del'; b.textContent = 'Gỡ';
+    b.title = a.os === 'android' || a.os === 'web' || a.os === 'ios' ? 'Ngắt trang clipboard này' : 'Gỡ agent khỏi máy đích (agent tự xoá file và shortcut)';
+    b.onclick = () => { if (confirm(`Gỡ agent clipboard trên ${a.host || a.id}?`)) api('/clip', {op:'uninstall', id:a.id}).then(d => { paintClip(d); tip(d.err || 'Đã gửi lệnh gỡ – agent sẽ tự xoá trong ~1 giây') }) };
+    row.appendChild(b); L.appendChild(row);
+  }
+  const ins = d.install || {};
+  $('cErr').textContent = ins.state === 'error' ? 'Lỗi khi gõ lệnh cài: ' + ins.err : '';
+  for (const id of ['iWin', 'iLin', 'iAnd']) $(id).disabled = ins.state === 'typing';
+  const c = d.clip;
+  if ($('cRx').dataset.seq !== String(c.seq)){ $('cRx').value = c.text; $('cRx').dataset.seq = c.seq }
+  const nm = id => { const a = d.agents.find(a => a.id === id); return a && a.host || id };
+  $('cMeta').textContent = c.seq ? `· ${nm(c.src)} · ${hhmm(c.ts)} · ${c.text.length} ký tự` : '';
+  $('cCopy').disabled = $('cType').disabled = !c.text;
+  const H = $('cHist'); H.innerHTML = '';
+  for (const h of d.hist.slice(1)){
+    const row = document.createElement('div'); row.className = 'li hc'; row.title = 'Bấm để copy về máy này';
+    row.innerHTML = `<div class="nm"><b class="pv">${esc(oneLine(h.text).slice(0, 120)) || '(khoảng trắng)'}</b><span>${esc(nm(h.src))} · ${hhmm(h.ts)} · ${h.text.length} ký tự</span></div>`;
+    row.onclick = () => copyLocal(h.text).then(ok => tip(ok ? 'Đã copy về máy này' : 'Trình duyệt chặn copy'));
+    H.appendChild(row);
+  }
+  const on = d.agents.filter(a => a.online);
+  if (d.push.seq){
+    const got = on.filter(a => a.got).map(a => a.host || a.id);
+    $('cPushSt').textContent = got.length ? `Lần gửi gần nhất (${d.push.len} ký tự, ${hhmm(d.push.ts)}) đã vào clipboard của ${got.join(', ')}.`
+      : on.length ? 'Đang chờ agent nhận…' : 'Chưa có agent nào đang chạy để nhận.';
+  } else $('cPushSt').textContent = on.length ? '' : 'Cần cài agent trên máy đích trước.';
+  $('cSet').disabled = $('cSetV').disabled = !on.length;
+}
+function clipStat(d){
+  if (d.ag !== undefined && d.ag !== agOn){ agOn = d.ag; $('pClip').hidden = !agOn }
+  if (d.clip === undefined) return;
+  if (clipSeq === null || d.clip < clipSeq){ clipSeq = d.clip; return }
+  if (d.clip === clipSeq) return;
+  clipSeq = d.clip;
+  pollClip().then(x => {
+    if (!x) return; const t = x.clip.text;
+    if (!(panelOpen() && curTab === 'clip')) $('cDot').hidden = false;
+    if ($('cAuto').checked) copyLocal(t).then(ok => tip(ok ? `Đã copy về máy này: “${oneLine(t).slice(0, 40)}”` : 'Trình duyệt chặn tự copy'));
+    else tip(`Máy đích vừa copy: “${oneLine(t).slice(0, 40)}${t.length > 40 ? '…' : ''}”`);
+  });
+}
+async function pushClip(t, paste){
+  if (!t) return;
+  let d;
+  try{ d = await api('/clip', {op:'set', text:t}) }catch(e){ tip('Lỗi: ' + e.message); return }
+  if (d.err){ tip(d.err); return }
+  const seq = d.push.seq, t0 = Date.now(); clearTimeout(pushWait); tip('Đang đưa vào clipboard máy đích…');
+  const chk = async () => {
+    const x = await pollClip();
+    if (x && x.push.seq === seq && x.agents.some(a => a.online && a.got)){
+      if (paste){ releaseAll(); send('c ctrl+v'); tip(`Đã dán ${t.length} ký tự (Ctrl+V)`) } else tip(`Đã vào clipboard máy đích (${t.length} ký tự)`);
+      return;
+    }
+    if (Date.now() - t0 > 5000){ tip('Agent chưa nhận được – kiểm tra tab Clipboard'); return }
+    pushWait = setTimeout(chk, 300);
+  };
+  pushWait = setTimeout(chk, 250);
+}
+const INST = {
+  windows: 'W105D sẽ bấm Win+R trên máy đích rồi gõ một lệnh PowerShell (~10 giây) để tải và cài agent.\n\n• Máy đích phải đang ở màn hình Windows đã đăng nhập, bàn phím kiểu English (tắt Unikey/EVKey).\n• Đừng gõ phím hay di chuột trong lúc đó.\n\nTiếp tục?',
+  linux: 'W105D sẽ bấm Ctrl+Alt+T để mở Terminal rồi gõ lệnh cài agent (~10 giây).\n\n• Nếu máy đích không mở Terminal bằng Ctrl+Alt+T, hãy tự mở Terminal trước.\n• Agent cần python3 và xclip (hoặc wl-clipboard).\n• Đừng gõ phím hay di chuột trong lúc đó.\n\nTiếp tục?',
+  android: 'Trên Android: mở trình duyệt và chạm vào thanh địa chỉ trước.\nW105D sẽ gõ địa chỉ trang Clipboard của KVM rồi Enter.\n\nAndroid không cho ứng dụng nền đọc clipboard, nên trang này dùng kiểu dán tay và chỉ đồng bộ khi đang mở.\n\nTiếp tục?',
+};
+function installAgent(os){
+  if (!confirm(INST[os])) return;
+  api('/clip', {op:'install', os}).then(d => { paintClip(d); tip(d.err || 'Đang gõ lệnh cài agent – đừng đụng phím/chuột'); closePanel() }).catch(e => tip('Lỗi: ' + e.message));
+}
+$('iWin').onclick = () => installAgent('windows');
+$('iLin').onclick = () => installAgent('linux');
+$('iAnd').onclick = () => installAgent('android');
+$('cCopy').onclick = () => copyLocal($('cRx').value).then(ok => tip(ok ? 'Đã copy về máy này' : 'Trình duyệt chặn copy – chọn chữ trong ô rồi Ctrl+C'));
+$('cType').onclick = () => { $('cTx').value = $('cRx').value; $('cTx').focus() };
+$('cSet').onclick = () => pushClip($('cTx').value, false);
+$('cSetV').onclick = () => { const t = $('cTx').value; if (!t) return; closePanel(); pushClip(t, true) };
+$('pClip').onclick = () => { const t = $('ptxt').value.replace(/\r\n?/g, '\n'); $('ptxt').value = ''; dlg.close(); pushClip(t, true) };
+{ let a = false; try{ a = store.get('clipAuto', '0') === '1' }catch(_){} $('cAuto').checked = a && window.isSecureContext; $('cAutoW').hidden = !window.isSecureContext;
+  $('cAuto').onchange = e => store.set('clipAuto', e.target.checked ? '1' : '0') }
+
+/* ================= đăng nhập / token ================= */
+$('aUrl').textContent = location.host + '/debug.md';
+$('aOut').onclick = async () => { await fetch('/auth/logout', {method:'POST'}); location.replace('/login') };
+$('aRot').onclick = async () => {
+  if (!confirm('Tạo token mới?\nMọi trình duyệt và agent khác đang dùng token cũ sẽ bị đăng xuất. Trình duyệt này vẫn đăng nhập.')) return;
+  try{
+    const r = await fetch('/auth/rotate', {method:'POST'}); const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    const e = $('aTok'); e.hidden = false; e.textContent = d.token; tip('Đã đổi token – lưu token mới (hiện trong tab W105D)');
+  }catch(e){ tip('Không đổi được token: ' + e.message) }
+};
 </script></body></html>

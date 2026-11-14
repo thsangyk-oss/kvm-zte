@@ -33,7 +33,15 @@ Lenh UDP (dang text, moi dong 1 lenh):
 import os, sys, socket, struct, selectors, select, fcntl, time, glob, signal
 
 UDP_PORT = 5115
-HIDG_K, HIDG_M, HIDG_A = "/dev/hidg0", "/dev/hidg1", "/dev/hidg2"
+HIDG_K, HIDG_M, HIDG_A = "/dev/hidg0", "/dev/hidg1", "/dev/hidg2"   # ban phim boot, chuot tuong doi, but (Digitizer Pen)
+HIDG_B = "/dev/hidg3"                    # chuot tuyet doi (gadget-setup.sh hid.usb3, report 6 byte khong report ID)
+ABSMODE_F = "/var/lib/xd-kvm/absmode"    # "mouse" (mac dinh: Windows/Linux/mac) | "pen" (Android khong nhan chuot tuyet doi)
+LEDS_F = "/run/xd-hid-leds"              # den ban phim may dich (bit0 Num, bit1 Caps, bit2 Scroll) - kvmweb doc
+def absmode_get():
+    try:
+        with open(ABSMODE_F) as f: v = f.read().strip()
+        return v if v in ("mouse", "pen") else "mouse"
+    except OSError: return "mouse"
 
 EV_KEY, EV_REL, EV_SYN = 0x01, 0x02, 0x00
 REL_X, REL_Y, REL_WHEEL, REL_HWHEEL = 0, 1, 11, 6
@@ -116,10 +124,11 @@ CHARMAP.update({"!":(1,0x1e),"@":(1,0x1f),"#":(1,0x20),"$":(1,0x21),"%":(1,0x22)
 # ---------------- HID emit ----------------
 class Hid:
     def __init__(self):
-        self.kfd = self.mfd = self.afd = -1
+        self.kfd = self.mfd = self.afd = self.bfd = -1
+        self.absmode = absmode_get()
         self.reopen()
     def reopen(self):
-        for attr, path in (("kfd", HIDG_K), ("mfd", HIDG_M), ("afd", HIDG_A)):
+        for attr, path in (("kfd", HIDG_K), ("mfd", HIDG_M), ("afd", HIDG_A), ("bfd", HIDG_B)):
             if getattr(self, attr) < 0:
                 try: setattr(self, attr, os.open(path, os.O_WRONLY | os.O_NONBLOCK))
                 except OSError: pass
@@ -136,6 +145,7 @@ class Hid:
             except OSError: pass
             if fd == self.kfd: self.kfd = -1
             elif fd == self.mfd: self.mfd = -1
+            elif fd == self.bfd: self.bfd = -1
             else: self.afd = -1
             self.reopen()
     def kbd(self, mods, keys):
@@ -150,10 +160,26 @@ class Hid:
             self._w(self.mfd, struct.pack("Bbbb", btns, x, y, w))
             dx -= x; dy -= y; wh -= w
     ax = ay = 16384; abtn = 0
+    def set_absmode(self, m):
+        if m not in ("mouse", "pen") or m == self.absmode: return
+        if self.absmode == "pen":   # but roi khoi vung -> Windows thoi coi la but
+            self._w(self.afd, struct.pack("<BHH", 0, self.ax, self.ay))
+        self.absmode = m
+        try:
+            os.makedirs(os.path.dirname(ABSMODE_F), exist_ok=True)
+            with open(ABSMODE_F + ".tmp", "w") as f: f.write(m + "\n")
+            os.replace(ABSMODE_F + ".tmp", ABSMODE_F)
+        except OSError: pass
     def amouse(self, x, y, btns=0, wh=0):  # absolute pointer: x,y 0..32767
         self.ax, self.ay, self.abtn = x, y, btns & 7
-        # hidg2 = Digitizer Pen: b0=Tip (nut trai), b1=Barrel (nut phai), b2=InRange (luon 1)
-        bits = (1 if btns & 1 else 0) | (2 if btns & 2 else 0) | 4
+        if self.absmode == "mouse" and self.bfd >= 0:
+            # chuot tuyet doi that (report ID 4): con tro chuot binh thuong, hover + keo chon text dung
+            self._w(self.bfd, struct.pack("<BHHb", btns & 7, max(0, min(32767, x)), max(0, min(32767, y)),
+                                          max(-127, min(127, wh))))
+            return
+        # hidg2 = Digitizer Pen: b0=Tip, b1=Barrel, b2=InRange (luon 1)
+        # Windows: chuot phai = Barrel + Tip cung luc (Barrel khi dang hover bi bo qua)
+        bits = (1 if btns & 3 else 0) | (2 if btns & 2 else 0) | 4
         self._w(self.afd, struct.pack("<BHH", bits, max(0, min(32767, x)), max(0, min(32767, y))))
         if wh: self.mouse(0, 0, 0, wh)  # Pen khong co banh xe -> cuon qua chuot tuong doi
 
@@ -199,6 +225,12 @@ class MouseState:
         elif code == REL_Y: self.dy += val
         elif code == REL_WHEEL: self.wh += val
 
+def caps_on():
+    """Den Caps Lock cua may dich (led_reader ghi /run/xd-hid-leds; bit 1 = Caps)."""
+    try:
+        with open(LEDS_F) as f: return bool(int(f.read().strip() or 0) & 2)
+    except (OSError, ValueError): return False
+
 # ---------------- UDP command parser ----------------
 def handle_cmd(line, kb, ms):
     line = line.lstrip().rstrip("\r\n")   # giu nguyen dau cach trong 'text'
@@ -206,9 +238,12 @@ def handle_cmd(line, kb, ms):
     cmd = cmd.strip().lower()
     if not cmd: return
     if cmd == "text":
+        caps = caps_on()
         for ch in arg:
             m = CHARMAP.get(ch)
-            if m: kb.tap(0x02 if m[0] else 0, m[1])
+            if m:
+                sh = m[0] ^ (1 if caps and ch.isalpha() else 0)   # Caps Lock dang bat tren may dich -> dao Shift cho chu cai
+                kb.tap(0x02 if sh else 0, m[1])
     elif cmd == "key":
         t = arg.strip().lower().split()
         for name in t:
@@ -256,6 +291,8 @@ def handle_cmd(line, kb, ms):
         else:
             (kb.keys.add(u) if cmd == "hdown" else kb.keys.discard(u))
         kb.update()
+    elif cmd == "absmode":  # absmode mouse|pen
+        ms.hid.set_absmode(arg.strip().lower())
     elif cmd == "relall":  # nha het phim + nut chuot
         kb.keys.clear(); kb.mods = 0; kb.update(); ms.btns = 0; ms.hid.mouse(0)
         if ms.hid.abtn: ms.hid.amouse(ms.hid.ax, ms.hid.ay, 0, 0)
@@ -263,6 +300,32 @@ def handle_cmd(line, kb, ms):
         r = bytes.fromhex(arg.replace(" ", "")); kb.hid.kbd(r[0], r[2:8])
     elif cmd == "rawm":
         r = bytes.fromhex(arg.replace(" ", "")); ms.hid.mouse(r[0], r[1], r[2], r[3])
+
+# ---------------- den ban phim (output report cua host) ----------------
+def led_reader():
+    """Host gui output report 1 byte (Num/Caps/Scroll) toi hid.usb0 -> doc tu /dev/hidg0 bang fd rieng."""
+    import threading
+    def run():
+        last = None
+        while True:
+            try: fd = os.open(HIDG_K, os.O_RDONLY)
+            except OSError: time.sleep(2); continue
+            try:
+                while True:
+                    b = os.read(fd, 8)
+                    if not b: break
+                    v = b[0]
+                    if v != last:
+                        last = v
+                        try:
+                            with open(LEDS_F + ".tmp", "w") as f: f.write(str(v))
+                            os.replace(LEDS_F + ".tmp", LEDS_F)
+                        except OSError: pass
+            except OSError: pass
+            finally:
+                os.close(fd)
+            time.sleep(1)
+    threading.Thread(target=run, daemon=True).start()
 
 # ---------------- main loop ----------------
 def is_kbd(fd):
@@ -272,7 +335,7 @@ def is_mouse(fd):
     return (evbits(fd, EV_REL) >> REL_X) & 1 and (evbits(fd, EV_KEY) >> 0x110) & 1
 
 def main():
-    port, grab = UDP_PORT, True
+    port, grab, local = UDP_PORT, True, True
     args = sys.argv[1:]
     if args and args[0] == "send":
         if "--port" in args:
@@ -284,11 +347,14 @@ def main():
         a = args.pop(0)
         if a == "--port": port = int(args.pop(0))
         elif a == "--no-grab": grab = False
+        elif a == "--no-local": local = False   # khong chuyen tiep ban phim/chuot cam vao box
 
     hid = Hid(); kb = KbdState(hid); ms = MouseState(hid)
+    led_reader()
     sel = selectors.DefaultSelector()
 
     def add_dev(path):
+        if not local: return
         try:
             fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
         except OSError: return
