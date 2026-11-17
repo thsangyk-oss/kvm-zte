@@ -624,6 +624,22 @@ audio = AudioHub()
 # ---------------- H.264 phan cung (xd-venc: MJPEG -> amvenc_avc) ----------------
 VENC = os.environ.get("XD_VENC", "/usr/local/bin/xd-venc")
 
+def _readn(f, n):
+    """Doc dung n byte tu pipe khong dem (FileIO.read tra ve thieu khi du lieu > dung luong pipe)."""
+    buf = bytearray()
+    while len(buf) < n:
+        c = f.read(n - len(buf))
+        if not c: return None
+        buf += c
+    return bytes(buf)
+
+def _writen(f, b):
+    mv = memoryview(b)
+    while mv:
+        k = f.write(mv)
+        if not k: raise OSError("short write")
+        mv = mv[k:]
+
 class H264Hub:
     """1 tien trinh xd-venc dung chung; chi chay khi co nguoi xem H.264. Dua khung JPEG moi nhat vao stdin
     (encoder ban -> bo khung cu), phat access unit (Annex-B) cho tung client qua queue rieng."""
@@ -672,20 +688,20 @@ class H264Hub:
                 seq = s
                 if self.newkbps:
                     k, self.newkbps = self.newkbps, None
-                    p.stdin.write(struct.pack("<I", 0x40000000 | k))
+                    _writen(p.stdin, struct.pack("<I", 0x40000000 | k))
                 hdr = len(f) | (0x80000000 if self.idr else 0)
                 self.idr = False
-                p.stdin.write(struct.pack("<I", hdr) + f)   # pipe day = encoder cham -> lan sau lay khung moi nhat
+                _writen(p.stdin, struct.pack("<I", hdr) + f)   # pipe day = encoder cham -> lan sau lay khung moi nhat
         except (OSError, ValueError): pass
     def _read(self, p):
         t0, n, nb = time.time(), 0, 0
         try:
             while True:
-                h = p.stdout.read(9)
-                if len(h) < 9: break
+                h = _readn(p.stdout, 9)       # pipe khong dem: read() co the tra ve thieu -> doc du
+                if h is None: break
                 ln, key, w, hh = struct.unpack("<IBHH", h)
-                data = p.stdout.read(ln)
-                if len(data) < ln: break
+                data = _readn(p.stdout, ln)
+                if data is None: break
                 if key: self.last_key = time.time()
                 self.size = (w, hh)
                 msg = b"\x03" + struct.pack(">BHH", key, w, hh) + data
